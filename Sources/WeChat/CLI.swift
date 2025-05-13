@@ -2,16 +2,41 @@ import ArgumentParser
 import Foundation
 import WeChatLibrary
 
+public enum OutputFormat: String, ExpressibleByArgument {
+  case json, plain
+}
+
+public func toJson(data: Encodable) -> String {
+  let encoder = JSONEncoder()
+  encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+  let encoded = try! encoder.encode(data)
+  return String(data: encoded, encoding: .utf8) ?? ""
+}
+
 private struct ListChats: ParsableCommand {
   static let configuration = CommandConfiguration(
     abstract: "List WeChat Chats")
 
+  @Option(
+    name: .shortAndLong,
+    help: "format, either of 'plain' or 'json'")
+  var format: OutputFormat = .plain
+
   func run() {
     do {
       let chatInfos = WeChat().listAllChats()
-      for chatInfo in chatInfos {
-        print(chatInfo.toString())
+      var str = ""
+      switch self.format {
+      case .json:
+        str = toJson(data: chatInfos)
+      case .plain:
+        var idx = 0
+        str = chatInfos.map { info in
+          idx = idx + 1
+          return "[\(idx)] \(info.toStr())"
+        }.joined(separator: "\n")
       }
+      print(str)
     } catch let error {
       print(error)
     }
@@ -44,10 +69,25 @@ private struct Show: ParsableCommand {
   @Argument(
     help: "Chat title")
   var title: String
+  @Option(
+    name: .shortAndLong,
+    help: "format, either of 'plain' or 'json'")
+  var format: OutputFormat = .plain
 
   func run() {
     do {
-      WeChat().show(from: self.title)
+      if let chatInfo = WeChat().show(from: self.title) {
+        var str = ""
+        switch self.format {
+        case .json:
+          str = toJson(data: chatInfo)
+        case .plain:
+          str = chatInfo.messages.map { msg in
+            msg.toStr()
+          }.joined(separator: "\n")
+        }
+        print(str)
+      }
     } catch let error {
       print(error)
     }

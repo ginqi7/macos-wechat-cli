@@ -188,9 +188,9 @@ public class WeChat {
       textArea[0].submit()
     }
   }
-  public func show(from: String) {
+  public func show(from: String) -> ChatInfo? {
     guard let windowElement = getAppWindow() else {
-      return
+      return nil
     }
     let chats = listAllChats()
     if let chat = chats.first { $0.title == from } {
@@ -202,10 +202,64 @@ public class WeChat {
         withRoleLink: self.locateLinks[.chatMessages]!,  // [.splitGroup, .splitGroup, .scrollArea, .table, .row, .cell, .unknown],
         maxDepth: 100
       )
-      chat.messages = messages.map { $0.getTitle() }.filter { $0 != nil }.map { $0! }
-      for message in chat.messages {
-        print(message)
+      chat.messages = toMessageGroups(elements: messages)
+      return chat
+    }
+    return nil
+  }
+
+  func isTimeFormat(_ string: String) -> Bool {
+    let timeFormatter = DateFormatter()
+    timeFormatter.locale = Locale(identifier: "zh_CN")
+    timeFormatter.dateFormat = "HH:mm"
+    // 使用严格模式，提高格式匹配准确性
+    timeFormatter.isLenient = false
+
+    return timeFormatter.date(from: string) != nil
+  }
+
+  public func isDate(str: String) -> Bool {
+    let splits = str.split(separator: " ")
+    if splits.count <= 2,
+      let date = splits.last,
+      isTimeFormat(String(date))
+    {
+      return true
+    }
+    return false
+  }
+  public func toMessageGroups(elements: [AXUIElement]) -> [MessageGroup] {
+    var result: [MessageGroup] = []
+    var group: [Message] = []
+    var date: String = "older"
+    for element in elements {
+      guard let title = element.getTitle() else {
+        continue
+      }
+      if isDate(str: title) {
+        result.append(MessageGroup(date: date, messages: group))
+        date = title
+        group = []
+      } else {
+        group.append(self.toMessage(str: title))
       }
     }
+    result.append(MessageGroup(date: date, messages: group))
+    return result
+  }
+
+  public func toMessage(str: String) -> Message {
+    let splits = str.split(separator: ":")
+    var user = splits[0]
+    var message = ""
+    if let startIndex = str.index(str.startIndex, offsetBy: user.count + 1, limitedBy: str.endIndex)
+    {
+      message = String(str[startIndex...])
+    }
+
+    if user.last == "说" {
+      user.removeLast()
+    }
+    return Message(user: String(user.trimmingCharacters(in: .whitespaces)), message: message)
   }
 }
