@@ -1,0 +1,48 @@
+name: Update homebrew
+on:
+  workflow_dispatch:
+jobs:
+  update_homebrew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository and the branch
+        uses: actions/checkout@v4
+      - name: Get latest release info
+        id: get_release
+        run: |
+          RELEASE_INFO=$(curl -s -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ github.repository }}/releases/latest)
+          TAG=$(echo $RELEASE_INFO | jq -r '.tag_name')
+          BODY=$(echo $RELEASE_INFO | jq -r '.body')
+          SHA256=$(echo $BODY |  grep -oE '[a-f0-9]{64}\s+wechat\.tar\.gz' | awk '{print $1}')
+          echo "Release Tag: $TAG"
+          echo "Release BODY: $BODY"
+          echo "Release SHA256: $SHA256"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+      - name: Update Homebrew repository formulae
+        run: |
+          git clone https://github.com/ginqi7/homebrew-formulae homebrew-formulae --depth 1
+          cd homebrew-formulae
+          echo "class WechatCli < Formula
+            homepage \"https://github.com/${{ github.repository }}\"
+            url \"https://github.com/${{ github.repository }}/releases/download/${{ steps.get_release.outputs.tag }}/wechat.tar.gz\"
+            sha256 \"${{ steps.get_release.outputs.sha256 }}\"
+
+            def install
+              bin.install \"wechat\"
+            end
+          end" > Formula/wechat-cli.rb
+          git add Formula/wechat-cli.rb
+          git -c user.name='github actions by ${{ github.actor }}' -c user.email='NO' \
+          commit -m "Update wechat-cli to version ${{ steps.get_release.outputs.tag }}"
+          git status
+          cat Formula/wechat-cli.rb
+          echo "Tag: ${{ steps.get_release.outputs.tag }}"
+          echo "SHA256: ${{ steps.get_release.outputs.sha256 }}"
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.PAT_TOKEN }}
+          directory: "homebrew-formulae"
+          repository: ginqi7/homebrew-formulae

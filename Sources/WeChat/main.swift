@@ -1,0 +1,3 @@
+import Darwin
+
+CLI.main()
