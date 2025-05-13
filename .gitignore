@@ -1,2 +1,5 @@
 .build
 wechat.tar.gz
+*.o
+*.d
+*.swiftdeps

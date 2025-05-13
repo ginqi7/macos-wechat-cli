@@ -96,7 +96,7 @@ private struct Show: ParsableCommand {
 
 public struct CLI: ParsableCommand {
   public static let configuration = CommandConfiguration(
-    commandName: "org-reminders",
+    commandName: "wechat",
     abstract:
       "A CLI tool for Sending / Receving WeChat Message.",
     subcommands: [

@@ -8,7 +8,7 @@ A simple CLI for interacting with OS X WeChat.
 ```
 OVERVIEW: A CLI tool for Sending / Receving WeChat Message.
 
-USAGE: org-reminders <subcommand>
+USAGE: wechat <subcommand>
 
 OPTIONS:
   -h, --help              Show help information.
@@ -18,7 +18,7 @@ SUBCOMMANDS:
   send                    Set WeChat Message.
   show                    Show WeChat Messages.
 
-  See 'org-reminders help <subcommand>' for detailed help.
+  See 'wechat help <subcommand>' for detailed help.
 ```
 
 #### Show all chats
