@@ -351,28 +351,24 @@ public class WeChat {
     }
     return false
   }
-  public func toMessageGroups(elements: [AXUIElement], indexList: [Int]) -> [MessageGroup] {
-    var result: [MessageGroup] = []
-    var group: [Message] = []
-    var date: String = "older"
+  public func toMessageGroups(elements: [AXUIElement], indexList: [Int]) -> [Message] {
+    var result: [Message] = []
+    var date: String = ""
     var indices = indexList
     for element in elements {
       guard let title = element.getTitle() else {
         continue
       }
       if isDate(str: title) {
-        result.append(MessageGroup(date: date, messages: group))
         date = title
-        group = []
       } else {
-        group.append(self.toMessage(str: title, index: indices.removeFirst()))
+        result.append(self.toMessage(str: title, index: indices.removeFirst(), date: date))
       }
     }
-    result.append(MessageGroup(date: date, messages: group))
     return result
   }
 
-  public func toMessage(str: String, index: Int) -> Message {
+  public func toMessage(str: String, index: Int, date: String) -> Message {
     let splits = str.split(separator: ":")
     var user = splits[0]
     var message = ""
@@ -385,7 +381,8 @@ public class WeChat {
       user.removeLast()
     }
     return Message(
-      user: String(user.trimmingCharacters(in: .whitespaces)), message: message, index: index)
+      user: String(user.trimmingCharacters(in: .whitespaces)), message: message, index: index,
+      date: date)
   }
 
   public func getSelectedChat(rows: [AXUIElement]) -> ChatInfo? {

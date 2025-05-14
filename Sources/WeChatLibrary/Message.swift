@@ -5,16 +5,19 @@ public class Message: Encodable {
     case index
     case user
     case message
+    case date
   }
 
   var index: Int
   var user: String
   var message: String
+  public var date: String
 
-  public init(user: String, message: String, index: Int) {
+  public init(user: String, message: String, index: Int, date: String) {
     self.user = user
     self.message = message
     self.index = index
+    self.date = date
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -22,6 +25,7 @@ public class Message: Encodable {
     try container.encode(self.index, forKey: .index)
     try container.encode(self.user, forKey: .user)
     try container.encode(self.message, forKey: .message)
+    try container.encode(self.date, forKey: .date)
   }
 
   public func toJson() -> String {
@@ -34,5 +38,4 @@ public class Message: Encodable {
   public func toStr() -> String {
     return "\(self.user) > \(self.message)"
   }
-
 }

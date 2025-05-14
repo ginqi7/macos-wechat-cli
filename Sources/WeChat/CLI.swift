@@ -35,7 +35,6 @@ private struct ListChats: ParsableCommand {
       case .json:
         str = toJson(data: chatInfos)
       case .plain:
-        var idx = 0
         str = chatInfos.map {
           $0.toStr()
         }.joined(separator: "\n")
@@ -82,6 +81,14 @@ private struct Show: ParsableCommand {
     help: "Only show visible Chats.")
   var onlyVisible: Bool = false
 
+  func formatDate(date: String) -> String {
+    let width = 40
+    let half = (width - date.count) / 2
+    let seperator = String(repeating: "-", count: half)
+    return seperator + date + seperator + "\n"
+
+  }
+
   func run() {
     do {
       if let chatInfo = WeChat().show(from: self.title, onlyVisible: self.onlyVisible) {
@@ -90,9 +97,15 @@ private struct Show: ParsableCommand {
         case .json:
           str = toJson(data: chatInfo)
         case .plain:
-          str = chatInfo.messages.map { msg in
-            msg.toStr()
-          }.joined(separator: "\n")
+          var date = ""
+          str += formatDate(date: date)
+          for message in chatInfo.messages {
+            if message.date != date {
+              date = message.date
+              str += formatDate(date: date)
+            }
+            str += message.toStr() + "\n"
+          }
         }
         print(str)
       }

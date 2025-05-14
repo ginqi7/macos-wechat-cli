@@ -23,7 +23,7 @@ public class ChatInfo: Encodable {
   var lastDate: String = ""
   var unread: Int = 0
   var element: AXUIElement
-  public var messages: [MessageGroup] = []
+  public var messages: [Message] = []
 
   public init(title: String, element: AXUIElement, index: Int) {
     self.title = title
