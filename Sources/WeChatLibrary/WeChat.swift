@@ -3,24 +3,28 @@ import ApplicationServices
 import CoreGraphics
 
 public enum ChatLocation: String {
-  case chatList, chatButton, chatInput, chatMessages
+  case chatTitle, chatButton, chatInput, chatViewTable, messageInRow,
+    chatListTable, chatTitleInRow
 }
 
 public class WeChat {
   var windowElement: AXUIElement?
 
   final var locateLinks: [ChatLocation: [NSAccessibility.Role]] = [
-    .chatList: [.splitGroup, .scrollArea, .table, .row, .cell, .row],
+    .chatListTable: [.splitGroup, .scrollArea, .table],
+    .chatTitleInRow: [.cell, .row],
+    .chatTitle: [.cell, .row],
     .chatButton: [.radioButton],
     .chatInput: [.splitGroup, .splitGroup, .scrollArea, .textArea],
-    .chatMessages: [.splitGroup, .splitGroup, .scrollArea, .table, .row, .cell, .unknown],
+    .chatViewTable: [.splitGroup, .splitGroup, .scrollArea, .table],
+    .messageInRow: [.cell, .unknown],
   ]
 
   public init() {
   }
 
-  // 辅助函数：检查并引导用户开启辅助功能权限
-  func checkAccessibilityPermissions() -> Bool {
+  // Helper function: Check and prompt the user to enable accessibility permissions.
+  func checkAccessibilityPermissions() {
     let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
     let accessEnabled = AXIsProcessTrustedWithOptions(options as CFDictionary)
 
@@ -37,7 +41,6 @@ public class WeChat {
         NSWorkspace.shared.open(url)
       }
     }
-    return accessEnabled
   }
 
   func getAppWindow() -> AXUIElement? {
@@ -45,9 +48,13 @@ public class WeChat {
       return windowElement
     }
     checkAccessibilityPermissions()
-    let wechatApp = NSRunningApplication.runningApplications(
-      withBundleIdentifier: "com.tencent.xinWeChat"
-    ).first!
+    guard
+      let wechatApp = NSRunningApplication.runningApplications(
+        withBundleIdentifier: "com.tencent.xinWeChat"
+      ).first
+    else {
+      return nil
+    }
     let wechatAppElement = AXUIElementCreateApplication(wechatApp.processIdentifier)
     var mainWindow: CFTypeRef?
     var windowResult = AXUIElementCopyAttributeValue(
@@ -60,7 +67,7 @@ public class WeChat {
       print("无法获取 WeChat 的窗口。错误: \(windowResult.rawValue)")
       return nil
     }
-    self.windowElement = window as! AXUIElement  // 实际应做更安全的转换
+    self.windowElement = unsafeBitCast(window, to: AXUIElement.self)
     return self.windowElement
   }
 
@@ -74,33 +81,69 @@ public class WeChat {
     )
     buttons = filterElements(
       elements: buttons, attribute: .help, value: "微信")
-    if buttons.count == 1 {
-      let button = buttons[0]
-      if let value = button.value(),
-        value as! Int == 0
-      {
-        button.click()
-      }
+    if buttons.count == 1,
+      let value = buttons[0].value(),
+      value as! Int == 0  // If the value is 0, the chat button not activate.
+    {
+      buttons[0].click()
     }
   }
 
-  public func listAllChats() -> [ChatInfo] {
+  public func getChatListTable(windowElement: AXUIElement) -> AXUIElement? {
+    if let roleLink = self.locateLinks[.chatListTable],
+      let table = windowElement.findElements(
+        withRoleLink: roleLink,
+        maxDepth: 100
+      ).first
+    {
+      return table
+    }
+    return nil
+  }
+
+  public func getChatRowTitle(row: AXUIElement) -> [AXUIElement] {
+    if let chatTitleInRow = self.locateLinks[.chatTitleInRow] {
+      return row.findElements(
+        withRoleLink: chatTitleInRow,
+        maxDepth: 100
+      )
+    }
+    return []
+  }
+
+  public func chatRowsToChatInfos(rows: [AXUIElement]) -> [ChatInfo] {
+    var result: [ChatInfo] = []
+    var chatTitles: [AXUIElement] = []
+    for row in rows {
+      chatTitles.append(contentsOf: getChatRowTitle(row: row))
+    }
+    for chatTitle in chatTitles {
+      if let chatInfo = toChatInfo(element: chatTitle) {
+        result.append(chatInfo)
+      }
+    }
+    return result
+  }
+
+  public func listChats(onlyVisible: Bool = false) -> [ChatInfo] {
     guard let windowElement = getAppWindow() else {
       return []
     }
     clickChat()
-    let rows = windowElement.findElements(
-      withRoleLink: self.locateLinks[.chatList]!,  // [.splitGroup, .scrollArea, .table, .row, .cell, .row],
-      maxDepth: 100
-    )
-    // let rows: [AXUIElement] = []
-    return rows.map {
-      toChatInfo(element: $0)!
+    guard let chatListTable = getChatListTable(windowElement: windowElement) else {
+      return []
     }
+
+    var rows: [AXUIElement] = []
+    if onlyVisible {
+      rows = chatListTable.getVisibleRows()
+    } else {
+      rows = chatListTable.getAllRows()
+    }
+    return chatRowsToChatInfos(rows: rows)
   }
 
   func toChatInfo(element: AXUIElement) -> ChatInfo? {
-
     var infoRef: CFTypeRef?
     if AXUIElementCopyAttributeValue(
       element, NSAccessibility.Attribute.title as CFString, &infoRef) == .success,
@@ -116,9 +159,12 @@ public class WeChat {
         strs.removeAll { $0 == "置顶" }
         chatInfo.stick = true
       }
-      if let match = strs.filter { $0.contains("条未读消息") }.first {
+      let match = strs.filter { $0.contains("条未读消息") }.first
+      if let match = match,
+        let index = match.firstIndex(of: "条")
+      {
         strs.removeAll { $0 == match }
-        if let num = Int(match.substring(to: match.firstIndex(of: "条")!)),
+        if let num = Int(match[..<index]),
           num > 1
         {
           chatInfo.unread = num
@@ -167,15 +213,13 @@ public class WeChat {
     return results
   }
 
-  func locateChat(chat: String) {
-  }
-
   public func send(to: String, message: String) {
     guard let windowElement = getAppWindow() else {
       return
     }
-    let chats = listAllChats()
-    if let chat = chats.first { $0.title == to } {
+    let chats = listChats()
+    let chat = chats.first { $0.title == to }
+    if let chat = chat {
       let selectElement = chat.element.getParentElement()!.getParentElement()!
       if !selectElement.selected() {
         selectElement.setSelectedState(selected: true)
@@ -188,24 +232,80 @@ public class WeChat {
       textArea[0].submit()
     }
   }
-  public func show(from: String) -> ChatInfo? {
+
+  public func show(from: String, onlyVisible: Bool = false) -> ChatInfo? {
     guard let windowElement = getAppWindow() else {
       return nil
     }
-    let chats = listAllChats()
-    if let chat = chats.first { $0.title == from } {
-      let selectElement = chat.element.getParentElement()!.getParentElement()!
-      if !selectElement.selected() {
-        selectElement.setSelectedState(selected: true)
-      }
-      let messages = windowElement.findElements(
-        withRoleLink: self.locateLinks[.chatMessages]!,  // [.splitGroup, .splitGroup, .scrollArea, .table, .row, .cell, .unknown],
-        maxDepth: 100
-      )
-      chat.messages = toMessageGroups(elements: messages)
-      return chat
+    clickChat()
+    guard let chatListTable = getChatListTable(windowElement: windowElement) else {
+      return nil
     }
-    return nil
+
+    let visibleRows = chatListTable.getVisibleRows()
+    let allRows = chatListTable.getAllRows()
+
+    // Find Selected Chat
+    var selectedChat = getSelectedChat(rows: visibleRows)
+    if selectedChat == nil {
+      selectedChat = getSelectedChat(rows: allRows)
+    }
+
+    // Verify if the selected chat is your target.
+    var target: ChatInfo? = nil
+
+    if let selectedChat = selectedChat,
+      selectedChat.title == from
+    {
+      target = selectedChat
+    }
+
+    if target == nil {
+      // If selected chat is not target, search it.
+      var chats = chatRowsToChatInfos(rows: visibleRows)
+      var chat = chats.first { $0.title == from }
+      if chat == nil {
+        chats = chatRowsToChatInfos(rows: allRows)
+      }
+      chat = chats.first { $0.title == from }
+
+      if let chat = chat,
+        let selectElement = chat.element.getParentElement()?.getParentElement()
+      {
+        selectElement.setSelectedState(selected: true)
+        target = chat
+      }
+    }
+    guard let target = target else {
+      return target
+    }
+
+    // Show target Messages.
+    var messages: [AXUIElement] = []
+    guard let roleLink = self.locateLinks[.chatViewTable],
+      let chatViewTable = windowElement.findElements(
+        withRoleLink: roleLink,
+        maxDepth: 100
+      ).first
+    else {
+      return target
+    }
+    var rows: [AXUIElement] = []
+    if onlyVisible {
+      rows = chatViewTable.getVisibleRows()
+    } else {
+      rows = chatViewTable.getAllRows()
+    }
+
+    for row in rows {
+      messages.append(
+        contentsOf: row.findElements(
+          withRoleLink: self.locateLinks[.messageInRow]!,
+          maxDepth: 100
+        ))
+    }
+    target.messages = toMessageGroups(elements: messages)
+    return target
   }
 
   func isTimeFormat(_ string: String) -> Bool {
@@ -261,5 +361,18 @@ public class WeChat {
       user.removeLast()
     }
     return Message(user: String(user.trimmingCharacters(in: .whitespaces)), message: message)
+  }
+
+  public func getSelectedChat(rows: [AXUIElement]) -> ChatInfo? {
+    let row = rows.first { $0.selected() }
+    if let row = row,
+      let title = row.findElements(
+        withRoleLink: self.locateLinks[.chatTitle]!,
+        maxDepth: 100
+      ).first
+    {
+      return toChatInfo(element: title)
+    }
+    return nil
   }
 }

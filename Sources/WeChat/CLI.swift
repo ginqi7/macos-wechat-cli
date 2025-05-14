@@ -22,9 +22,14 @@ private struct ListChats: ParsableCommand {
     help: "format, either of 'plain' or 'json'")
   var format: OutputFormat = .plain
 
+  @Option(
+    name: .shortAndLong,
+    help: "Only show visible Chats.")
+  var onlyVisible: Bool = false
+
   func run() {
     do {
-      let chatInfos = WeChat().listAllChats()
+      let chatInfos = WeChat().listChats(onlyVisible: self.onlyVisible)
       var str = ""
       switch self.format {
       case .json:
@@ -73,10 +78,14 @@ private struct Show: ParsableCommand {
     name: .shortAndLong,
     help: "format, either of 'plain' or 'json'")
   var format: OutputFormat = .plain
+  @Option(
+    name: .shortAndLong,
+    help: "Only show visible Chats.")
+  var onlyVisible: Bool = false
 
   func run() {
     do {
-      if let chatInfo = WeChat().show(from: self.title) {
+      if let chatInfo = WeChat().show(from: self.title, onlyVisible: self.onlyVisible) {
         var str = ""
         switch self.format {
         case .json:

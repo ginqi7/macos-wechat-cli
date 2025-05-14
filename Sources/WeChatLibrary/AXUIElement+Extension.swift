@@ -4,14 +4,33 @@ import CoreGraphics
 
 extension AXUIElement {
   func getParentElement() -> AXUIElement? {
-    var parent: AnyObject?
+    var parent: CFTypeRef?
     let result = AXUIElementCopyAttributeValue(self, kAXParentAttribute as CFString, &parent)
     if result == .success {
-      return parent as! AXUIElement
+      let parent = parent as! AXUIElement
+      return parent
     } else {
       print("Failed to get Parent: \(result)")
       return nil
     }
+  }
+
+  func getVisibleRows() -> [AXUIElement] {
+    var rows: AnyObject?
+    let result = AXUIElementCopyAttributeValue(self, kAXVisibleRowsAttribute as CFString, &rows)
+    if result == .success {
+      return rows as! [AXUIElement]
+    }
+    return []
+  }
+
+  func getAllRows() -> [AXUIElement] {
+    var rows: AnyObject?
+    let result = AXUIElementCopyAttributeValue(self, kAXRowsAttribute as CFString, &rows)
+    if result == .success {
+      return rows as! [AXUIElement]
+    }
+    return []
   }
 
   func getPid() -> pid_t? {
@@ -71,7 +90,7 @@ extension AXUIElement {
     let result = AXUIElementCopyAttributeValue(self, kAXValueAttribute as CFString, &value)
 
     if result == .success {
-      return value as? Any
+      return value
     } else {
       print("Get AXValue Error:\(result)")
       return nil
@@ -87,15 +106,12 @@ extension AXUIElement {
     }
   }
 
-  func setSelectedState(selected: Bool) -> Bool {
+  func setSelectedState(selected: Bool) {
     let value = selected as CFBoolean
     let result = AXUIElementSetAttributeValue(self, kAXSelectedAttribute as CFString, value)
 
-    if result == .success {
-      return true
-    } else {
+    if result != .success {
       print("Set AXSelected Error:\(result)")
-      return false
     }
   }
 
@@ -116,10 +132,11 @@ extension AXUIElement {
         if AXUIElementCopyAttributeValue(
           child, NSAccessibility.Attribute.role.rawValue as CFString, &childrenRole) == .success
         {
-          if let role = childrenRole as? String {
-            if roles.count == 0 || roles.contains { $0.rawValue == role } {
-              elements.append(child)
-            }
+          let rolesStr = roles.map { $0.rawValue }
+          if let role = childrenRole as? String,
+            roles.count == 0 || rolesStr.contains(role)
+          {
+            elements.append(child)
           }
         }
       }
@@ -140,8 +157,6 @@ extension AXUIElement {
 
       var elements: [AXUIElement] = []
       for parent in parents {
-
-        let start = DispatchTime.now()
         elements.append(contentsOf: parent.children(roles: [role]))
       }
       parents = elements
