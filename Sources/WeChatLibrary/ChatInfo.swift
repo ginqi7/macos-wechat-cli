@@ -5,7 +5,7 @@ import Foundation
 /// A description
 public class ChatInfo: Encodable {
   private enum EncodingKeys: String, CodingKey {
-
+    case index
     case title
     case stick
     case messageMute
@@ -15,6 +15,7 @@ public class ChatInfo: Encodable {
     case messages
   }
 
+  var index: Int
   var title: String
   var stick: Bool = false
   var messageMute: Bool = false
@@ -24,9 +25,10 @@ public class ChatInfo: Encodable {
   var element: AXUIElement
   public var messages: [MessageGroup] = []
 
-  public init(title: String, element: AXUIElement) {
+  public init(title: String, element: AXUIElement, index: Int) {
     self.title = title
     self.element = element
+    self.index = index
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -41,7 +43,7 @@ public class ChatInfo: Encodable {
   }
 
   public func toStr() -> String {
-    return "\(self.title) > \(self.lastMessage) (\(self.lastDate))"
+    return "[\(self.index)] \(self.title) > \(self.lastMessage) (\(self.lastDate))"
   }
 
 }

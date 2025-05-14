@@ -36,9 +36,8 @@ private struct ListChats: ParsableCommand {
         str = toJson(data: chatInfos)
       case .plain:
         var idx = 0
-        str = chatInfos.map { info in
-          idx = idx + 1
-          return "[\(idx)] \(info.toStr())"
+        str = chatInfos.map {
+          $0.toStr()
         }.joined(separator: "\n")
       }
       print(str)

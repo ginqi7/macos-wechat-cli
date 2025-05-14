@@ -175,4 +175,13 @@ extension AXUIElement {
     return nil
   }
 
+  func getIndex() -> Int? {
+    var infoRef: CFTypeRef?
+    if AXUIElementCopyAttributeValue(
+      self, NSAccessibility.Attribute.index as CFString, &infoRef) == .success
+    {
+      return infoRef as? Int
+    }
+    return nil
+  }
 }

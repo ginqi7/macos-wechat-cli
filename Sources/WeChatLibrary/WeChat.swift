@@ -114,11 +114,16 @@ public class WeChat {
   public func chatRowsToChatInfos(rows: [AXUIElement]) -> [ChatInfo] {
     var result: [ChatInfo] = []
     var chatTitles: [AXUIElement] = []
+    var indexList: [Int] = []
     for row in rows {
+      if let index = row.getIndex() {
+        indexList.append(index)
+      }
       chatTitles.append(contentsOf: getChatRowTitle(row: row))
     }
-    for chatTitle in chatTitles {
-      if let chatInfo = toChatInfo(element: chatTitle) {
+
+    for (idx, chatTitle) in chatTitles.enumerated() {
+      if let chatInfo = toChatInfo(element: chatTitle, index: indexList[idx]) {
         result.append(chatInfo)
       }
     }
@@ -143,14 +148,14 @@ public class WeChat {
     return chatRowsToChatInfos(rows: rows)
   }
 
-  func toChatInfo(element: AXUIElement) -> ChatInfo? {
+  func toChatInfo(element: AXUIElement, index: Int) -> ChatInfo? {
     var infoRef: CFTypeRef?
     if AXUIElementCopyAttributeValue(
       element, NSAccessibility.Attribute.title as CFString, &infoRef) == .success,
       let infoStr = infoRef as? String
     {
       var strs = infoStr.split(separator: ",").map { String($0) }
-      let chatInfo: ChatInfo = ChatInfo(title: strs[0], element: element)
+      let chatInfo: ChatInfo = ChatInfo(title: strs[0], element: element, index: index)
       if strs.contains("消息免打扰") {
         strs.removeAll { $0 == "消息免打扰" }
         chatInfo.messageMute = true
@@ -217,8 +222,16 @@ public class WeChat {
     guard let windowElement = getAppWindow() else {
       return
     }
-    let chats = listChats()
-    let chat = chats.first { $0.title == to }
+    clickChat()
+    guard let chatListTable = getChatListTable(windowElement: windowElement) else {
+      return
+    }
+
+    let visibleRows = chatListTable.getVisibleRows()
+    let allRows = chatListTable.getAllRows()
+
+    let chat = locateChat(to: to, visibleRows: visibleRows, allRows: allRows)
+
     if let chat = chat {
       let selectElement = chat.element.getParentElement()!.getParentElement()!
       if !selectElement.selected() {
@@ -233,6 +246,43 @@ public class WeChat {
     }
   }
 
+  public func locateChat(to: String, visibleRows: [AXUIElement], allRows: [AXUIElement])
+    -> ChatInfo?
+  {
+    // Find Selected Chat
+    var selectedChat = getSelectedChat(rows: visibleRows)
+    if selectedChat == nil {
+      selectedChat = getSelectedChat(rows: allRows)
+    }
+
+    // Verify if the selected chat is your target.
+    var target: ChatInfo? = nil
+
+    if let selectedChat = selectedChat,
+      selectedChat.title == to
+    {
+      target = selectedChat
+    }
+
+    if target == nil {
+      // If selected chat is not target, search it.
+      var chats = chatRowsToChatInfos(rows: visibleRows)
+      var chat = chats.first { $0.title == to }
+      if chat == nil {
+        chats = chatRowsToChatInfos(rows: allRows)
+      }
+      chat = chats.first { $0.title == to }
+
+      if let chat = chat,
+        let selectElement = chat.element.getParentElement()?.getParentElement()
+      {
+        selectElement.setSelectedState(selected: true)
+        target = chat
+      }
+    }
+    return target
+  }
+
   public func show(from: String, onlyVisible: Bool = false) -> ChatInfo? {
     guard let windowElement = getAppWindow() else {
       return nil
@@ -245,37 +295,7 @@ public class WeChat {
     let visibleRows = chatListTable.getVisibleRows()
     let allRows = chatListTable.getAllRows()
 
-    // Find Selected Chat
-    var selectedChat = getSelectedChat(rows: visibleRows)
-    if selectedChat == nil {
-      selectedChat = getSelectedChat(rows: allRows)
-    }
-
-    // Verify if the selected chat is your target.
-    var target: ChatInfo? = nil
-
-    if let selectedChat = selectedChat,
-      selectedChat.title == from
-    {
-      target = selectedChat
-    }
-
-    if target == nil {
-      // If selected chat is not target, search it.
-      var chats = chatRowsToChatInfos(rows: visibleRows)
-      var chat = chats.first { $0.title == from }
-      if chat == nil {
-        chats = chatRowsToChatInfos(rows: allRows)
-      }
-      chat = chats.first { $0.title == from }
-
-      if let chat = chat,
-        let selectElement = chat.element.getParentElement()?.getParentElement()
-      {
-        selectElement.setSelectedState(selected: true)
-        target = chat
-      }
-    }
+    let target = locateChat(to: from, visibleRows: visibleRows, allRows: allRows)
     guard let target = target else {
       return target
     }
@@ -296,15 +316,18 @@ public class WeChat {
     } else {
       rows = chatViewTable.getAllRows()
     }
-
+    var indexList: [Int] = []
     for row in rows {
+      if let index = row.getIndex() {
+        indexList.append(index)
+      }
       messages.append(
         contentsOf: row.findElements(
           withRoleLink: self.locateLinks[.messageInRow]!,
           maxDepth: 100
         ))
     }
-    target.messages = toMessageGroups(elements: messages)
+    target.messages = toMessageGroups(elements: messages, indexList: indexList)
     return target
   }
 
@@ -328,10 +351,11 @@ public class WeChat {
     }
     return false
   }
-  public func toMessageGroups(elements: [AXUIElement]) -> [MessageGroup] {
+  public func toMessageGroups(elements: [AXUIElement], indexList: [Int]) -> [MessageGroup] {
     var result: [MessageGroup] = []
     var group: [Message] = []
     var date: String = "older"
+    var indices = indexList
     for element in elements {
       guard let title = element.getTitle() else {
         continue
@@ -341,14 +365,14 @@ public class WeChat {
         date = title
         group = []
       } else {
-        group.append(self.toMessage(str: title))
+        group.append(self.toMessage(str: title, index: indices.removeFirst()))
       }
     }
     result.append(MessageGroup(date: date, messages: group))
     return result
   }
 
-  public func toMessage(str: String) -> Message {
+  public func toMessage(str: String, index: Int) -> Message {
     let splits = str.split(separator: ":")
     var user = splits[0]
     var message = ""
@@ -360,7 +384,8 @@ public class WeChat {
     if user.last == "说" {
       user.removeLast()
     }
-    return Message(user: String(user.trimmingCharacters(in: .whitespaces)), message: message)
+    return Message(
+      user: String(user.trimmingCharacters(in: .whitespaces)), message: message, index: index)
   }
 
   public func getSelectedChat(rows: [AXUIElement]) -> ChatInfo? {
@@ -371,7 +396,7 @@ public class WeChat {
         maxDepth: 100
       ).first
     {
-      return toChatInfo(element: title)
+      return toChatInfo(element: title, index: row.getIndex()!)
     }
     return nil
   }
