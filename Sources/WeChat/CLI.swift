@@ -28,21 +28,17 @@ private struct ListChats: ParsableCommand {
   var onlyVisible: Bool = false
 
   func run() {
-    do {
-      let chatInfos = WeChat().listChats(onlyVisible: self.onlyVisible)
-      var str = ""
-      switch self.format {
-      case .json:
-        str = toJson(data: chatInfos)
-      case .plain:
-        str = chatInfos.map {
-          $0.toStr()
-        }.joined(separator: "\n")
-      }
-      print(str)
-    } catch let error {
-      print(error)
+    let chatInfos = WeChat().listChats(onlyVisible: self.onlyVisible)
+    var str = ""
+    switch self.format {
+    case .json:
+      str = toJson(data: chatInfos)
+    case .plain:
+      str = chatInfos.map {
+        $0.toStr()
+      }.joined(separator: "\n")
     }
+    print(str)
   }
 }
 
@@ -58,11 +54,7 @@ private struct Send: ParsableCommand {
   var message: String
 
   func run() {
-    do {
-      WeChat().send(to: self.title, message: self.message)
-    } catch let error {
-      print(error)
-    }
+    WeChat().send(to: self.title, message: self.message)
   }
 }
 
@@ -90,27 +82,23 @@ private struct Show: ParsableCommand {
   }
 
   func run() {
-    do {
-      if let chatInfo = WeChat().show(from: self.title, onlyVisible: self.onlyVisible) {
-        var str = ""
-        switch self.format {
-        case .json:
-          str = toJson(data: chatInfo)
-        case .plain:
-          var date = ""
-          str += formatDate(date: date)
-          for message in chatInfo.messages {
-            if message.date != date {
-              date = message.date
-              str += formatDate(date: date)
-            }
-            str += message.toStr() + "\n"
+    if let chatInfo = WeChat().show(from: self.title, onlyVisible: self.onlyVisible) {
+      var str = ""
+      switch self.format {
+      case .json:
+        str = toJson(data: chatInfo)
+      case .plain:
+        var date = ""
+        str += formatDate(date: date)
+        for message in chatInfo.messages {
+          if message.date != date {
+            date = message.date
+            str += formatDate(date: date)
           }
+          str += message.toStr() + "\n"
         }
-        print(str)
       }
-    } catch let error {
-      print(error)
+      print(str)
     }
   }
 }
