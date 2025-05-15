@@ -68,6 +68,9 @@ public class WeChat {
       return nil
     }
     self.windowElement = unsafeBitCast(window, to: AXUIElement.self)
+    if let windowElement = self.windowElement {
+      windowElement.active()
+    }
     return self.windowElement
   }
 

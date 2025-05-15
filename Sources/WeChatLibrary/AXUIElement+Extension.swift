@@ -57,6 +57,17 @@ extension AXUIElement {
     }
   }
 
+  // Send the escape key to the app to activate its process, which will expedite subsequent operations.
+  func active() {
+    let source = CGEventSource(stateID: .hidSystemState)
+    let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(0x35), keyDown: true)
+    let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(0x35), keyDown: false)
+    if let pid = self.getPid(), let keyDown = keyDown, let keyUp = keyUp {
+      keyDown.postToPid(pid)
+      keyUp.postToPid(pid)
+    }
+  }
+
   func actions() -> [String] {
     var actionsCF: CFArray?
     let result = AXUIElementCopyActionNames(self, &actionsCF)

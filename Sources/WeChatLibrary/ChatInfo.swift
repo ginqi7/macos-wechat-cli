@@ -40,6 +40,7 @@ public class ChatInfo: Encodable {
     try container.encode(self.lastDate, forKey: .lastDate)
     try container.encode(self.unread, forKey: .unread)
     try container.encode(self.messages, forKey: .messages)
+    try container.encode(self.index, forKey: .index)
   }
 
   public func toStr() -> String {
