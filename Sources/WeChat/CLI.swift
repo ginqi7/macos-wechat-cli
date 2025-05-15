@@ -70,16 +70,8 @@ private struct Show: ParsableCommand {
   var format: OutputFormat = .plain
   @Option(
     name: .shortAndLong,
-    help: "Only show visible Chats.")
+    help: "Only show visible messages.")
   var onlyVisible: Bool = false
-
-  func formatDate(date: String) -> String {
-    let width = 40
-    let half = (width - date.count) / 2
-    let seperator = String(repeating: "-", count: half)
-    return seperator + date + seperator + "\n"
-
-  }
 
   func run() {
     if let chatInfo = WeChat().show(from: self.title, onlyVisible: self.onlyVisible) {
@@ -88,15 +80,7 @@ private struct Show: ParsableCommand {
       case .json:
         str = toJson(data: chatInfo)
       case .plain:
-        var date = ""
-        str += formatDate(date: date)
-        for message in chatInfo.messages {
-          if message.date != date {
-            date = message.date
-            str += formatDate(date: date)
-          }
-          str += message.toStr() + "\n"
-        }
+        str = chatInfo.messagesToStr()
       }
       print(str)
     }

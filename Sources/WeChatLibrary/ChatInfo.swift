@@ -47,4 +47,25 @@ public class ChatInfo: Encodable {
     return "[\(self.index)] \(self.title) > \(self.lastMessage) (\(self.lastDate))"
   }
 
+  public func messagesToStr() -> String {
+    var date = ""
+    var str = ""
+    str += self.formatDate(date: date)
+    for message in self.messages {
+      if message.date != date {
+        date = message.date
+        str += self.formatDate(date: date)
+      }
+      str += message.toStr() + "\n"
+    }
+    return str
+  }
+
+  func formatDate(date: String) -> String {
+    let width = 40
+    let half = (width - date.count) / 2
+    let seperator = String(repeating: "-", count: half)
+    return seperator + date + seperator + "\n"
+
+  }
 }
