@@ -88,7 +88,7 @@ public class WeChat {
       let value = buttons[0].value(),
       value as! Int == 0  // If the value is 0, the chat button not activate.
     {
-      buttons[0].click()
+      buttons[0].press()
     }
   }
 
@@ -304,7 +304,6 @@ public class WeChat {
     }
 
     // Show target Messages.
-    var messages: [AXUIElement] = []
     guard let roleLink = self.locateLinks[.chatViewTable],
       let chatViewTable = windowElement.findElements(
         withRoleLink: roleLink,
@@ -319,18 +318,7 @@ public class WeChat {
     } else {
       rows = chatViewTable.getAllRows()
     }
-    var indexList: [Int] = []
-    for row in rows {
-      if let index = row.getIndex() {
-        indexList.append(index)
-      }
-      messages.append(
-        contentsOf: row.findElements(
-          withRoleLink: self.locateLinks[.messageInRow]!,
-          maxDepth: 100
-        ))
-    }
-    target.messages = toMessageGroups(elements: messages, indexList: indexList)
+    target.messages = toMessageGroups(elements: rows)
     return target
   }
 
@@ -354,18 +342,22 @@ public class WeChat {
     }
     return false
   }
-  public func toMessageGroups(elements: [AXUIElement], indexList: [Int]) -> [Message] {
+  public func toMessageGroups(elements: [AXUIElement]) -> [Message] {
     var result: [Message] = []
     var date: String = ""
-    var indices = indexList
-    for element in elements {
-      guard let title = element.getTitle() else {
-        continue
-      }
-      if isDate(str: title) {
-        date = title
-      } else {
-        result.append(self.toMessage(str: title, index: indices.removeFirst(), date: date))
+    for row in elements {
+      if let index = row.getIndex(),
+        let cell = row.findElements(
+          withRoleLink: self.locateLinks[.messageInRow]!,
+          maxDepth: 100
+        ).first,
+        let title = cell.getTitle()
+      {
+        if isDate(str: title) {
+          date = title
+        } else {
+          result.append(self.toMessage(str: title, index: index, date: date))
+        }
       }
     }
     return result
@@ -399,5 +391,47 @@ public class WeChat {
       return toChatInfo(element: title, index: row.getIndex()!)
     }
     return nil
+  }
+
+  public func previewMessage(title: String, messageIndex: Int, onlyVisible: Bool) {
+    guard let windowElement = getAppWindow() else {
+      return
+    }
+    clickChat()
+    guard let chatListTable = getChatListTable(windowElement: windowElement) else {
+      return
+    }
+    let visibleRows = chatListTable.getVisibleRows()
+    let allRows = chatListTable.getAllRows()
+
+    let _ = locateChat(to: title, visibleRows: visibleRows, allRows: allRows)
+    // guard let target = target else {
+    //   return
+    // }
+
+    guard let roleLink = self.locateLinks[.chatViewTable],
+      let chatViewTable = windowElement.findElements(
+        withRoleLink: roleLink,
+        maxDepth: 100
+      ).first
+    else {
+      return
+    }
+    var rows: [AXUIElement] = []
+    if onlyVisible {
+      rows = chatViewTable.getVisibleRows()
+    } else {
+      rows = chatViewTable.getAllRows()
+    }
+
+    let row = rows.first {
+      return $0.getIndex() == messageIndex
+    }
+    if let row = row,
+      let rowlink = locateLinks[.messageInRow],
+      let cell = row.findElements(withRoleLink: rowlink).first
+    {
+      cell.press()
+    }
   }
 }

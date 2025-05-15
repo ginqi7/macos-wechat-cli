@@ -78,7 +78,7 @@ extension AXUIElement {
     return actions
   }
 
-  func click() {
+  func press() {
     if self.actions().contains(kAXPressAction as String) {
       AXUIElementPerformAction(self, kAXPressAction as CFString)
     }

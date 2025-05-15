@@ -85,6 +85,15 @@ OPTIONS:
 $ wechat send user1 "Hello World"
 ```
 
+### Preview an image or link message in a chat
+
+
+```
+$ wechat preview user1 10
+```
+A WeChat preview window will appear.
+
+
 ### See help for more examples
 
 ```

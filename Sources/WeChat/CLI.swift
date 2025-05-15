@@ -87,6 +87,27 @@ private struct Show: ParsableCommand {
   }
 }
 
+private struct Preview: ParsableCommand {
+  static let configuration = CommandConfiguration(
+    abstract: "Preview the Link or the Image")
+  @Argument(
+    help: "Chat Title")
+  var title: String
+  @Argument(
+    help: "Message Index")
+  var index: Int
+  @Option(
+    name: .shortAndLong,
+    help: "Only show visible messages.")
+  var onlyVisible: Bool = false
+
+  func run() {
+    WeChat().previewMessage(
+      title: self.title,
+      messageIndex: self.index, onlyVisible: self.onlyVisible)
+  }
+}
+
 public struct CLI: ParsableCommand {
   public static let configuration = CommandConfiguration(
     commandName: "wechat",
@@ -96,6 +117,7 @@ public struct CLI: ParsableCommand {
       ListChats.self,
       Send.self,
       Show.self,
+      Preview.self,
     ]
   )
 
