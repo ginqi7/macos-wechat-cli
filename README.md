@@ -2,6 +2,8 @@
 
 A simple CLI for interacting with OS X WeChat.
 
+*The current version only supports Wechat 3.8 and simplified Chinese on WeChat.*
+
 ## Usage:
 
 
