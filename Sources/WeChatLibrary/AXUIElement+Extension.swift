@@ -45,7 +45,6 @@ extension AXUIElement {
   }
 
   func submit() {
-
     let source = CGEventSource(stateID: .hidSystemState)
     let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(0x24), keyDown: true)
     let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(0x24), keyDown: false)
@@ -53,6 +52,32 @@ extension AXUIElement {
       keyDown.postToPid(pid)
       usleep(50_000)
       keyUp.postToPid(pid)
+      usleep(50_000)
+    }
+  }
+
+  func click() {
+    let source = CGEventSource(stateID: .hidSystemState)
+    // let mouseLocation = NSEvent.mouseLocation
+    let mouseLocation = CGPoint(x: 18, y: 116)
+    print(mouseLocation)
+    let mouseDown = CGEvent(
+      mouseEventSource: source,
+      mouseType: .leftMouseDown,
+      mouseCursorPosition: mouseLocation,
+      mouseButton: .left)
+
+    let mouseUp = CGEvent(
+      mouseEventSource: source,
+      mouseType: .leftMouseUp,
+      mouseCursorPosition: mouseLocation,
+      mouseButton: .left)
+
+    if let pid = self.getPid(), let mouseDown = mouseDown, let mouseUp = mouseUp {
+      mouseDown.postToPid(pid)
+      mouseDown.post(tap: .cghidEventTap)
+      usleep(50_000)
+      mouseUp.post(tap: .cghidEventTap)
       usleep(50_000)
     }
   }
@@ -81,6 +106,8 @@ extension AXUIElement {
   func press() {
     if self.actions().contains(kAXPressAction as String) {
       AXUIElementPerformAction(self, kAXPressAction as CFString)
+    } else {
+      print("Element not support press: \(self)")
     }
   }
 

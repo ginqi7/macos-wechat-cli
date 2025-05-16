@@ -6,6 +6,10 @@ public enum OutputFormat: String, ExpressibleByArgument {
   case json, plain
 }
 
+public enum Version: String, ExpressibleByArgument {
+  case v38, v40
+}
+
 public func toJson(data: Encodable) -> String {
   let encoder = JSONEncoder()
   encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -27,8 +31,13 @@ private struct ListChats: ParsableCommand {
     help: "Only show visible Chats.")
   var onlyVisible: Bool = false
 
+  @Option(
+    name: .shortAndLong,
+    help: "WeChat Version: 3.8 or 4.0")
+  var version: Version = .v38
+
   func run() {
-    let chatInfos = WeChat().listChats(onlyVisible: self.onlyVisible)
+    let chatInfos = WeChat(version: self.version.rawValue).listChats(onlyVisible: self.onlyVisible)
     var str = ""
     switch self.format {
     case .json:
@@ -53,8 +62,13 @@ private struct Send: ParsableCommand {
     help: "Chat Message")
   var message: String
 
+  @Option(
+    name: .shortAndLong,
+    help: "WeChat Version: 3.8 or 4.0")
+  var version: Version = .v38
+
   func run() {
-    WeChat().send(to: self.title, message: self.message)
+    WeChat(version: self.version.rawValue).send(to: self.title, message: self.message)
   }
 }
 
@@ -73,8 +87,15 @@ private struct Show: ParsableCommand {
     help: "Only show visible messages.")
   var onlyVisible: Bool = false
 
+  @Option(
+    name: .shortAndLong,
+    help: "WeChat Version: 3.8 or 4.0")
+  var version: Version = .v38
+
   func run() {
-    if let chatInfo = WeChat().show(from: self.title, onlyVisible: self.onlyVisible) {
+    if let chatInfo = WeChat(version: self.version.rawValue).show(
+      from: self.title, onlyVisible: self.onlyVisible)
+    {
       var str = ""
       switch self.format {
       case .json:
@@ -101,8 +122,13 @@ private struct Preview: ParsableCommand {
     help: "Only show visible messages.")
   var onlyVisible: Bool = false
 
+  @Option(
+    name: .shortAndLong,
+    help: "WeChat Version: 3.8 or 4.0")
+  var version: Version = .v38
+
   func run() {
-    WeChat().previewMessage(
+    WeChat(version: self.version.rawValue).previewMessage(
       title: self.title,
       messageIndex: self.index, onlyVisible: self.onlyVisible)
   }

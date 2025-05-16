@@ -2,25 +2,12 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
-public enum ChatLocation: String {
-  case chatTitle, chatButton, chatInput, chatViewTable, messageInRow,
-    chatListTable, chatTitleInRow
-}
-
 public class WeChat {
   var windowElement: AXUIElement?
+  var locateLinks: ElementLocateLink
 
-  final var locateLinks: [ChatLocation: [NSAccessibility.Role]] = [
-    .chatListTable: [.splitGroup, .scrollArea, .table],
-    .chatTitleInRow: [.cell, .row],
-    .chatTitle: [.cell, .row],
-    .chatButton: [.radioButton],
-    .chatInput: [.splitGroup, .splitGroup, .scrollArea, .textArea],
-    .chatViewTable: [.splitGroup, .splitGroup, .scrollArea, .table],
-    .messageInRow: [.cell, .unknown],
-  ]
-
-  public init() {
+  public init(version: String) {
+    self.locateLinks = ElementLocateLink(version: version)
   }
 
   // Helper function: Check and prompt the user to enable accessibility permissions.
@@ -78,40 +65,31 @@ public class WeChat {
     guard let windowElement = getAppWindow() else {
       return
     }
-    var buttons = windowElement.findElements(
-      withRoleLink: self.locateLinks[.chatButton]!,  //[.radioButton],
-      maxDepth: 100
-    )
+    var buttons = self.locateLinks.findElements(
+      parent: windowElement,
+      location: .chatButton)
+    // buttons = filterElements(
+    //   elements: buttons, attribute: .help, value: "微信")
     buttons = filterElements(
-      elements: buttons, attribute: .help, value: "微信")
-    if buttons.count == 1,
-      let value = buttons[0].value(),
-      value as! Int == 0  // If the value is 0, the chat button not activate.
+      elements: buttons, attribute: .title, value: "微信")
+    if buttons.count == 1  //,
+      // let value = buttons[0].value(),
+      // value as! Int == 0  // If the value is 0, the chat button not activate.
     {
-      buttons[0].press()
+      // buttons[0].press()
+      buttons[0].click()
+
     }
   }
 
   public func getChatListTable(windowElement: AXUIElement) -> AXUIElement? {
-    if let roleLink = self.locateLinks[.chatListTable],
-      let table = windowElement.findElements(
-        withRoleLink: roleLink,
-        maxDepth: 100
-      ).first
-    {
-      return table
-    }
-    return nil
+    return self.locateLinks.findElement(
+      parent: windowElement,
+      location: .chatListTable)
   }
 
   public func getChatRowTitle(row: AXUIElement) -> [AXUIElement] {
-    if let chatTitleInRow = self.locateLinks[.chatTitleInRow] {
-      return row.findElements(
-        withRoleLink: chatTitleInRow,
-        maxDepth: 100
-      )
-    }
-    return []
+    return self.locateLinks.findElements(parent: row, location: .chatTitleInRow)
   }
 
   public func chatRowsToChatInfos(rows: [AXUIElement]) -> [ChatInfo] {
@@ -240,12 +218,12 @@ public class WeChat {
       if !selectElement.selected() {
         selectElement.setSelectedState(selected: true)
       }
-      let textArea = windowElement.findElements(
-        withRoleLink: self.locateLinks[.chatInput]!,  // [.splitGroup, .splitGroup, .scrollArea, .textArea],
-        maxDepth: 100
-      )
-      textArea[0].write(message: message)
-      textArea[0].submit()
+      let textArea = self.locateLinks.findElement(parent: windowElement, location: .chatInput)
+
+      if let textArea = textArea {
+        textArea.write(message: message)
+        textArea.submit()
+      }
     }
   }
 
@@ -304,11 +282,10 @@ public class WeChat {
     }
 
     // Show target Messages.
-    guard let roleLink = self.locateLinks[.chatViewTable],
-      let chatViewTable = windowElement.findElements(
-        withRoleLink: roleLink,
-        maxDepth: 100
-      ).first
+    let chatViewTable = self.locateLinks.findElement(
+      parent: windowElement, location: .chatViewTable)
+    guard
+      let chatViewTable = chatViewTable
     else {
       return target
     }
@@ -347,10 +324,7 @@ public class WeChat {
     var date: String = ""
     for row in elements {
       if let index = row.getIndex(),
-        let cell = row.findElements(
-          withRoleLink: self.locateLinks[.messageInRow]!,
-          maxDepth: 100
-        ).first,
+        let cell = self.locateLinks.findElement(parent: row, location: .messageInRow),
         let title = cell.getTitle()
       {
         if isDate(str: title) {
@@ -383,10 +357,7 @@ public class WeChat {
   public func getSelectedChat(rows: [AXUIElement]) -> ChatInfo? {
     let row = rows.first { $0.selected() }
     if let row = row,
-      let title = row.findElements(
-        withRoleLink: self.locateLinks[.chatTitle]!,
-        maxDepth: 100
-      ).first
+      let title = self.locateLinks.findElement(parent: row, location: .chatTitle)
     {
       return toChatInfo(element: title, index: row.getIndex()!)
     }
@@ -409,11 +380,9 @@ public class WeChat {
     //   return
     // }
 
-    guard let roleLink = self.locateLinks[.chatViewTable],
-      let chatViewTable = windowElement.findElements(
-        withRoleLink: roleLink,
-        maxDepth: 100
-      ).first
+    guard
+      let chatViewTable = self.locateLinks.findElement(
+        parent: windowElement, location: .chatViewTable)
     else {
       return
     }
@@ -428,8 +397,7 @@ public class WeChat {
       return $0.getIndex() == messageIndex
     }
     if let row = row,
-      let rowlink = locateLinks[.messageInRow],
-      let cell = row.findElements(withRoleLink: rowlink).first
+      let cell = self.locateLinks.findElement(parent: row, location: .messageInRow)
     {
       cell.press()
     }
