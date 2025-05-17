@@ -172,9 +172,7 @@ public class WeChat {
         let index = match.firstIndex(of: "条")
       {
         strs.removeAll { $0 == match }
-        if let num = Int(match[..<index]),
-          num > 1
-        {
+        if let num = Int(match[..<index]) {
           chatInfo.unread = num
         }
       }
