@@ -56,18 +56,26 @@ public class WeChat {
       return nil
     }
     let wechatAppElement = AXUIElementCreateApplication(wechatApp.processIdentifier)
-    var mainWindow: CFTypeRef?
-    var windowResult = AXUIElementCopyAttributeValue(
-      wechatAppElement, NSAccessibility.Attribute.focusedWindow.rawValue as CFString, &mainWindow)
-    if windowResult != .success || mainWindow == nil {
-      windowResult = AXUIElementCopyAttributeValue(
-        wechatAppElement, NSAccessibility.Attribute.mainWindow.rawValue as CFString, &mainWindow)
+
+    var mainWindow: AXUIElement?
+    var windows: CFTypeRef?
+    let windowResult = AXUIElementCopyAttributeValue(
+      wechatAppElement, NSAccessibility.Attribute.windows.rawValue as CFString, &windows)
+    if windowResult == .success,
+      let windows = windows as? [AXUIElement]
+    {
+      mainWindow = windows.first { element in
+        if let title = element.getTitle() {
+          return title.starts(with: "微信 (")
+        }
+        return false
+      }
     }
-    guard windowResult == .success, let window = mainWindow else {
+    guard let window = mainWindow else {
       print("无法获取 WeChat 的窗口。错误: \(windowResult.rawValue)")
       return nil
     }
-    self.windowElement = unsafeBitCast(window, to: AXUIElement.self)
+    self.windowElement = window
     if let windowElement = self.windowElement {
       windowElement.active()
     }
