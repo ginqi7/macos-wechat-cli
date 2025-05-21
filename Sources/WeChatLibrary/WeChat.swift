@@ -10,6 +10,7 @@ public enum ChatLocation: String {
 public class WeChat {
   var windowElement: AXUIElement?
   var hasUnread: Bool = false
+  var totalUnread: Int = 0
 
   final var locateLinks: [ChatLocation: [NSAccessibility.Role]] = [
     .chatListTable: [.splitGroup, .scrollArea, .table],
@@ -84,6 +85,23 @@ public class WeChat {
     return self.windowElement
   }
 
+  func parseUnreadNum(str: String) -> Int {
+    let pattern = "(\\d+)条未读消息"
+    do {
+      let regex = try NSRegularExpression(pattern: pattern)
+      let matches = regex.matches(in: str, range: NSRange(str.startIndex..., in: str))
+
+      for match in matches {
+        if let range = Range(match.range(at: 1), in: str) {
+          return Int(str[range]) ?? 0
+        }
+      }
+    } catch {
+      print("Invalid regex: \(error.localizedDescription)")
+    }
+    return 0
+  }
+
   func clickChat() {
     guard let windowElement = getAppWindow() else {
       return
@@ -101,6 +119,7 @@ public class WeChat {
     let button = buttons[0]
     if let desc = button.getDescription() {
       self.hasUnread = desc.contains("条未读消息")
+      self.totalUnread = parseUnreadNum(str: desc)
     }
     if let value = button.value(),
       value as! Int == 0  // If the value is 0, the chat button not activate.
@@ -190,10 +209,9 @@ public class WeChat {
       {
         strs.removeAll { $0 == match }
         if let num = Int(match[..<index]) {
-          if num > 1 {
+          if self.totalUnread > 0 && !chatInfo.messageMute {
             chatInfo.unread = num
-          } else if num == 1 && self.hasUnread {
-            chatInfo.unread = num
+            self.totalUnread -= num
           }
         }
       }
@@ -424,9 +442,6 @@ public class WeChat {
     let allRows = chatListTable.getAllRows()
 
     let _ = locateChat(to: title, visibleRows: visibleRows, allRows: allRows)
-    // guard let target = target else {
-    //   return
-    // }
 
     guard let roleLink = self.locateLinks[.chatViewTable],
       let chatViewTable = windowElement.findElements(
