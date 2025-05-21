@@ -9,6 +9,7 @@ public enum ChatLocation: String {
 
 public class WeChat {
   var windowElement: AXUIElement?
+  var hasUnread: Bool = false
 
   final var locateLinks: [ChatLocation: [NSAccessibility.Role]] = [
     .chatListTable: [.splitGroup, .scrollArea, .table],
@@ -64,6 +65,7 @@ public class WeChat {
     if windowResult == .success,
       let windows = windows as? [AXUIElement]
     {
+
       mainWindow = windows.first { element in
         if let title = element.getTitle() {
           return title.starts(with: "微信 (")
@@ -92,8 +94,15 @@ public class WeChat {
     )
     buttons = filterElements(
       elements: buttons, attribute: .help, value: "微信")
-    if buttons.count == 1,
-      let value = buttons[0].value(),
+    if buttons.count != 1 {
+      print("There are multiple buttons labeled 微信 chats.")
+      return
+    }
+    let button = buttons[0]
+    if let desc = button.getDescription() {
+      self.hasUnread = desc.contains("条未读消息")
+    }
+    if let value = button.value(),
       value as! Int == 0  // If the value is 0, the chat button not activate.
     {
       buttons[0].press()
@@ -181,7 +190,11 @@ public class WeChat {
       {
         strs.removeAll { $0 == match }
         if let num = Int(match[..<index]) {
-          chatInfo.unread = num
+          if num > 1 {
+            chatInfo.unread = num
+          } else if num == 1 && self.hasUnread {
+            chatInfo.unread = num
+          }
         }
       }
       if strs.count >= 2 {

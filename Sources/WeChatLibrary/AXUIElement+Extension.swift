@@ -186,6 +186,76 @@ extension AXUIElement {
     return nil
   }
 
+  func getDescription() -> String? {
+    var infoRef: CFTypeRef?
+    if AXUIElementCopyAttributeValue(
+      self, NSAccessibility.Attribute.description as CFString, &infoRef) == .success,
+      let infoStr = infoRef as? String
+    {
+      return infoStr
+    }
+    return nil
+  }
+
+  func printAllAttributes() {
+    print("--- 正在检查元素: \(self) ---")
+
+    var attributeNames: CFArray?
+    let error = AXUIElementCopyAttributeNames(self, &attributeNames)
+
+    if error == .success, let names = attributeNames as? [String] {
+      if names.isEmpty {
+        print("元素没有可读的属性名称。")
+        return
+      }
+
+      print("找到 \(names.count) 个属性名称:")
+      for name in names {
+        var attributeValue: AnyObject?
+        let valueError = AXUIElementCopyAttributeValue(self, name as CFString, &attributeValue)
+
+        if valueError == .success {
+          if let value = attributeValue {
+            // 尝试打印值的描述，对于复杂类型可能需要进一步处理
+            // 对于 AXValueRef 类型，需要特殊处理以获取其内部值
+            if CFGetTypeID(value) == AXValueGetTypeID() {
+              let axValue = value as! AXValue  // 安全转换，因为我们检查了类型
+              var pointValue = CGPoint.zero
+              var sizeValue = CGSize.zero
+              var rectValue = CGRect.zero
+              var rangeValue = CFRange()
+
+              if AXValueGetValue(axValue, .cgPoint, &pointValue) {
+                print("  \(name): \(pointValue) (类型: CGPoint)")
+              } else if AXValueGetValue(axValue, .cgSize, &sizeValue) {
+                print("  \(name): \(sizeValue) (类型: CGSize)")
+              } else if AXValueGetValue(axValue, .cgRect, &rectValue) {
+                print("  \(name): \(rectValue) (类型: CGRect)")
+              } else if AXValueGetValue(axValue, .cfRange, &rangeValue) {
+                print("  \(name): \(rangeValue) (类型: CFRange)")
+              } else {
+                print("  \(name): \(value) (类型: AXValue, 未知内部类型或无法提取)")
+              }
+            } else {
+              print("  \(name): \(value)")
+            }
+            // Core Foundation 对象在 Swift 中通常会自动管理内存 (ARC 桥接)
+            // 但如果是手动创建的，或者从某些 C API 获取且未桥接，则可能需要 CFRelease(value)
+          } else {
+            print("  \(name): (nil value)")  // 值本身是 nil
+          }
+        } else {
+          print("  \(name): 无法获取值 (错误: \(valueError.rawValue))")
+        }
+      }
+    } else if error == .noValue {
+      print("元素没有属性 (AXError.noValue)。")
+    } else {
+      print("无法获取属性名称 (错误: \(error.rawValue))")
+    }
+    print("--- 检查元素结束 ---")
+  }
+
   func getIndex() -> Int? {
     var infoRef: CFTypeRef?
     if AXUIElementCopyAttributeValue(
