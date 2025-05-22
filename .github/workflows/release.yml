@@ -1,0 +1,40 @@
+name: Release
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v3
+      - name: xcode-select
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+      - name: build artifacts
+        run: |
+          output=$(make package)
+          echo "$output"
+          hash_lines=$(echo "$output" | grep -E '^[a-f0-9]{64}  .+$')
+          echo "artifact_hash=<<EOF" >> $GITHUB_OUTPUT
+          echo "$artifact_hash" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Install git-cliff
+        uses: taiki-e/install-action@git-cliff
+      - name: Generate a changelog
+        run: git-cliff --bump --unreleased --output CHANGELOG.md --with-tag-message "${{ steps.version.outputs.artifact_hash }}"
+      - name: Get next version
+        run: |
+          new_version=$(git-cliff --bumped-version)
+          echo "$new_version"
+          echo "version=$new_version" >> $GITHUB_OUTPUT
+      - name: release
+        uses: softprops/action-gh-release@v2
+        id: create_release
+        with:
+          draft: false
+          prerelease: false
+          release_name: ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          body_path: CHANGELOG.md
+          files: wechat.tar.gz
+          env:
+            GITHUB_TOKEN: ${{ github.token }}
