@@ -474,6 +474,30 @@ public class WeChat {
     }
   }
 
+  private func handleAXNotification(
+    _ observer: AXObserver,
+    _ uiElement: AXUIElement,
+    _ notification: CFString,
+    _ refcon: UnsafeMutableRawPointer?
+  ) {
+    guard let refcon = refcon else { return }
+    let mySelf = Unmanaged<WeChat>.fromOpaque(refcon).takeUnretainedValue()
+
+    let currentTime = Date()
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    formatter.timeZone = TimeZone.current
+    let dateString = formatter.string(from: currentTime)
+
+    if Int(mySelf.lastNotificationTime.timeIntervalSince1970 * 1000) + 500
+      < Int(currentTime.timeIntervalSince1970 * 1000)
+    {
+      print("[Notify] WeChat update at [\(dateString)] for notification: \(notification as String)")
+      // You might want to use uiElement as well, depending on the notification
+    }
+    mySelf.lastNotificationTime = currentTime
+  }
+
   public func startMonitoring() {
     guard let appElement = self.getWeChatAppElement(),
       let pid = appElement.getPid()
@@ -481,21 +505,14 @@ public class WeChat {
       return
     }
     let selfPtr = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+
+    // Use the extracted function as the callback
     let callback: AXObserverCallback = { observer, uiElement, notification, refcon in
-      let currentTime = Date()
-      let formatter = DateFormatter()
-
-      formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-      formatter.timeZone = TimeZone.current
-      let dateString = formatter.string(from: currentTime)
-
-      let mySelf = Unmanaged<WeChat>.fromOpaque(refcon!).takeUnretainedValue()
-      if Int(mySelf.lastNotificationTime.timeIntervalSince1970 * 1000) + 500
-        < Int(currentTime.timeIntervalSince1970 * 1000)
-      {
-        print("[Notify] WeChat update at [\(dateString)]")
-      }
-      mySelf.lastNotificationTime = currentTime
+      // This outer closure now simply calls the instance method.
+      // We still need to get `self` from `refcon` to call the instance method.
+      guard let refcon = refcon else { return }
+      let wechatInstance = Unmanaged<WeChat>.fromOpaque(refcon).takeUnretainedValue()
+      wechatInstance.handleAXNotification(observer, uiElement, notification, refcon)
     }
 
     var newObserver: AXObserver?
