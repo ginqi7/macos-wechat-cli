@@ -3,3 +3,4 @@ wechat.tar.gz
 *.o
 *.d
 *.swiftdeps
+.aider*

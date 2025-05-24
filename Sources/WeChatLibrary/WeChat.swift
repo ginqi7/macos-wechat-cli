@@ -3,11 +3,6 @@ import ApplicationServices
 import Cocoa
 import CoreGraphics
 
-public enum ChatLocation: String {
-  case chatTitle, chatButton, chatInput, chatViewTable, messageInRow,
-    chatListTable, chatTitleInRow
-}
-
 public class WeChat {
   var wechatAppElement: AXUIElement? = nil
   var windowElement: AXUIElement? = nil
@@ -16,15 +11,8 @@ public class WeChat {
   var observer: AXObserver? = nil
   var lastNotificationTime: Date = Date()
 
-  final var locateLinks: [ChatLocation: [NSAccessibility.Role]] = [
-    .chatListTable: [.splitGroup, .scrollArea, .table],
-    .chatTitleInRow: [.cell, .row],
-    .chatTitle: [.cell, .row],
-    .chatButton: [.radioButton],
-    .chatInput: [.splitGroup, .splitGroup, .scrollArea, .textArea],
-    .chatViewTable: [.splitGroup, .splitGroup, .scrollArea, .table],
-    .messageInRow: [.cell, .unknown],
-  ]
+  // Uses AXPathTarget from Constants.swift and initializes from WeChatConstants.axLocateLinks
+  final var locateLinks: [AXPathTarget: [NSAccessibility.Role]] = WeChatConstants.axLocateLinks
 
   public init() {
   }
@@ -36,14 +24,11 @@ public class WeChat {
 
     if !accessEnabled {
       print("--------------------------------------------------------------------")
-      print("重要: 辅助功能权限未启用!")
-      print("请前往: 系统设置 > 隐私与安全性 > 辅助功能")
-      print("然后点击 '+'，将此应用添加到列表中并启用它。")
+      print(WeChatConstants.Messages.accessibilityPermissionNeededTitle)
+      print(WeChatConstants.Messages.accessibilityPermissionNeededInstructions)
       print("--------------------------------------------------------------------")
       // 尝试打开辅助功能设置面板
-      if let url = URL(
-        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-      {
+      if let url = URL(string: WeChatConstants.accessibilitySettingsURL) {
         NSWorkspace.shared.open(url)
       }
     }
@@ -52,7 +37,7 @@ public class WeChat {
   func getWeChatAppElement() -> AXUIElement? {
     guard
       let wechatApp = NSRunningApplication.runningApplications(
-        withBundleIdentifier: "com.tencent.xinWeChat"
+        withBundleIdentifier: WeChatConstants.bundleIdentifier
       ).first
     else {
       return nil
@@ -78,7 +63,7 @@ public class WeChat {
 
       mainWindow = windows.first { element in
         if let title = element.getTitle() {
-          return title.starts(with: "微信 (")
+          return title.starts(with: WeChatConstants.mainWindowTitlePrefix)
         }
         return false
       }
@@ -91,7 +76,7 @@ public class WeChat {
   }
 
   func parseUnreadNum(str: String) -> Int {
-    let pattern = "(\\d+)条未读消息"
+    let pattern = WeChatConstants.unreadMessagesPattern
     do {
       let regex = try NSRegularExpression(pattern: pattern)
       let matches = regex.matches(in: str, range: NSRange(str.startIndex..., in: str))
@@ -102,7 +87,7 @@ public class WeChat {
         }
       }
     } catch {
-      print("Invalid regex: \(error.localizedDescription)")
+      print(String(format: WeChatConstants.Messages.invalidRegexError, error.localizedDescription))
     }
     return 0
   }
@@ -112,18 +97,18 @@ public class WeChat {
       return
     }
     var buttons = windowElement.findElements(
-      withRoleLink: self.locateLinks[.chatButton]!,  //[.radioButton],
+      withRoleLink: self.locateLinks[.chatButton]!,
       maxDepth: 100
     )
     buttons = filterElements(
-      elements: buttons, attribute: .help, value: "微信")
+      elements: buttons, attribute: .help, value: WeChatConstants.chatButtonHelpText)
     if buttons.count != 1 {
-      print("There are multiple buttons labeled 微信 chats.")
+      print(WeChatConstants.Messages.multipleChatButtonsError)
       return
     }
     let button = buttons[0]
     if let desc = button.getDescription() {
-      self.hasUnread = desc.contains("条未读消息")
+      self.hasUnread = desc.contains(WeChatConstants.unreadMessagesSuffix)
       self.totalUnread = parseUnreadNum(str: desc)
     }
     if let value = button.value(),
@@ -193,43 +178,40 @@ public class WeChat {
   }
 
   func toChatInfo(element: AXUIElement, index: Int) -> ChatInfo? {
-    var infoRef: CFTypeRef?
-    if AXUIElementCopyAttributeValue(
-      element, NSAccessibility.Attribute.title as CFString, &infoRef) == .success,
-      let infoStr = infoRef as? String
+    guard let infoStr = element.getTitle() else {
+      return nil
+    }
+    var strs = infoStr.split(separator: WeChatConstants.titleSeparator.first!).map { String($0) }
+    let chatInfo: ChatInfo = ChatInfo(title: strs[0], element: element, index: index)
+    if strs.contains(WeChatConstants.messageMuteText) {
+      strs.removeAll { $0 == WeChatConstants.messageMuteText }
+      chatInfo.messageMute = true
+    }
+    if strs.contains(WeChatConstants.stickTopText) {
+      strs.removeAll { $0 == WeChatConstants.stickTopText }
+      chatInfo.stick = true
+    }
+    let match = strs.filter { $0.contains(WeChatConstants.unreadMessagesSuffix) }.first
+    if let match = match,
+      let firstChar = WeChatConstants.unreadMessagesSuffix.first,
+      let index = match.firstIndex(of: firstChar)
     {
-      var strs = infoStr.split(separator: ",").map { String($0) }
-      let chatInfo: ChatInfo = ChatInfo(title: strs[0], element: element, index: index)
-      if strs.contains("消息免打扰") {
-        strs.removeAll { $0 == "消息免打扰" }
-        chatInfo.messageMute = true
-      }
-      if strs.contains("置顶") {
-        strs.removeAll { $0 == "置顶" }
-        chatInfo.stick = true
-      }
-      let match = strs.filter { $0.contains("条未读消息") }.first
-      if let match = match,
-        let index = match.firstIndex(of: "条")
-      {
-        strs.removeAll { $0 == match }
-        if let num = Int(match[..<index]) {
-          if self.totalUnread > 0 && !chatInfo.messageMute {
-            chatInfo.unread = num
-            self.totalUnread -= num
-          }
+      strs.removeAll { $0 == match }
+      if let num = Int(match[..<index]) {
+        if self.totalUnread > 0 && !chatInfo.messageMute {
+          chatInfo.unread = num
+          self.totalUnread -= num
         }
       }
-      if strs.count >= 2 {
-        chatInfo.lastMessage = strs[1]
-      }
-
-      if strs.count >= 3 {
-        chatInfo.lastDate = strs[2]
-      }
-      return chatInfo
     }
-    return nil
+    if strs.count >= 2 {
+      chatInfo.lastMessage = strs[1]
+    }
+
+    if strs.count >= 3 {
+      chatInfo.lastDate = strs[2]
+    }
+    return chatInfo
   }
 
   func filterElements(elements: [AXUIElement], chidrenCount: Int)
@@ -283,7 +265,7 @@ public class WeChat {
         selectElement.setSelectedState(selected: true)
       }
       let textArea = windowElement.findElements(
-        withRoleLink: self.locateLinks[.chatInput]!,  // [.splitGroup, .splitGroup, .scrollArea, .textArea],
+        withRoleLink: self.locateLinks[.chatInput]!,
         maxDepth: 100
       )
       textArea[0].write(message: message)
@@ -366,8 +348,8 @@ public class WeChat {
 
   func isTimeFormat(_ string: String) -> Bool {
     let timeFormatter = DateFormatter()
-    timeFormatter.locale = Locale(identifier: "zh_CN")
-    timeFormatter.dateFormat = "HH:mm"
+    timeFormatter.locale = Locale(identifier: WeChatConstants.localeIdentifierZHCN)
+    timeFormatter.dateFormat = WeChatConstants.timeFormatHHMM
     // 使用严格模式，提高格式匹配准确性
     timeFormatter.isLenient = false
 
@@ -414,8 +396,8 @@ public class WeChat {
       message = String(str[startIndex...])
     }
 
-    if user.last == "说" {
-      user.removeLast()
+    if user.hasSuffix(WeChatConstants.userSaidSuffix) {
+      user.removeLast(WeChatConstants.userSaidSuffix.count)
     }
     return Message(
       user: String(user.trimmingCharacters(in: .whitespaces)), message: message, index: index,
@@ -485,14 +467,17 @@ public class WeChat {
 
     let currentTime = Date()
     let formatter = DateFormatter()
-    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    formatter.dateFormat = WeChatConstants.dateTimeFormatFull
     formatter.timeZone = TimeZone.current
     let dateString = formatter.string(from: currentTime)
 
     if Int(mySelf.lastNotificationTime.timeIntervalSince1970 * 1000) + 500
       < Int(currentTime.timeIntervalSince1970 * 1000)
     {
-      print("[Notify] WeChat update at [\(dateString)] for notification: \(notification as String)")
+      print(
+        String(
+          format: WeChatConstants.Messages.notificationUpdateMessage, dateString,
+          notification as String))
       // You might want to use uiElement as well, depending on the notification
     }
     mySelf.lastNotificationTime = currentTime
@@ -519,7 +504,7 @@ public class WeChat {
     let error = AXObserverCreate(pid, callback, &newObserver)
 
     guard error == .success, let actualNewObserver = newObserver else {
-      print("Failed to create AXObserver: \(error.rawValue)")
+      print(String(format: WeChatConstants.Messages.failedToCreateAXObserver, "\(error.rawValue)"))
       return
     }
     self.observer = actualNewObserver
@@ -534,7 +519,10 @@ public class WeChat {
       let addError = AXObserverAddNotification(
         self.observer!, appElement, notification as CFString, selfPtr)  // 使用 self.observer!
       if addError != .success {
-        print("Failed to add notification \(notification): \(addError.rawValue)")
+        print(
+          String(
+            format: WeChatConstants.Messages.failedToAddNotification, "\(notification)",
+            "\(addError.rawValue)"))
       } else {
         // print("Registered for \(notification)")
       }
