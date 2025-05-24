@@ -108,6 +108,25 @@ private struct Preview: ParsableCommand {
   }
 }
 
+private struct Notify: ParsableCommand {
+  private var weChatMonitor: WeChat
+  static let configuration = CommandConfiguration(
+    abstract: "Preview the Link or the Image")
+
+  init() {
+    self.weChatMonitor = WeChat()
+  }
+
+  init(from decoder: Decoder) throws {
+    self.init()
+  }
+
+  func run() throws {
+    weChatMonitor.startMonitoring()
+    RunLoop.current.run()
+  }
+}
+
 public struct CLI: ParsableCommand {
   public static let configuration = CommandConfiguration(
     commandName: "wechat",
@@ -118,6 +137,7 @@ public struct CLI: ParsableCommand {
       Send.self,
       Show.self,
       Preview.self,
+      Notify.self,
     ]
   )
 

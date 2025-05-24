@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Cocoa
 import CoreGraphics
 
 public enum ChatLocation: String {
@@ -8,9 +9,12 @@ public enum ChatLocation: String {
 }
 
 public class WeChat {
-  var windowElement: AXUIElement?
+  var wechatAppElement: AXUIElement? = nil
+  var windowElement: AXUIElement? = nil
   var hasUnread: Bool = false
   var totalUnread: Int = 0
+  var observer: AXObserver? = nil
+  var lastNotificationTime: Date = Date()
 
   final var locateLinks: [ChatLocation: [NSAccessibility.Role]] = [
     .chatListTable: [.splitGroup, .scrollArea, .table],
@@ -45,11 +49,7 @@ public class WeChat {
     }
   }
 
-  func getAppWindow() -> AXUIElement? {
-    if let windowElement = self.windowElement {
-      return windowElement
-    }
-    checkAccessibilityPermissions()
+  func getWeChatAppElement() -> AXUIElement? {
     guard
       let wechatApp = NSRunningApplication.runningApplications(
         withBundleIdentifier: "com.tencent.xinWeChat"
@@ -57,15 +57,24 @@ public class WeChat {
     else {
       return nil
     }
-    let wechatAppElement = AXUIElementCreateApplication(wechatApp.processIdentifier)
+    self.wechatAppElement = AXUIElementCreateApplication(wechatApp.processIdentifier)
+    return self.wechatAppElement
+  }
+
+  func getAppWindow() -> AXUIElement? {
+    if let windowElement = self.windowElement {
+      return windowElement
+    }
+    checkAccessibilityPermissions()
+
+    guard let wechatAppElement = getWeChatAppElement() else {
+      return nil
+    }
 
     var mainWindow: AXUIElement?
-    var windows: CFTypeRef?
-    let windowResult = AXUIElementCopyAttributeValue(
-      wechatAppElement, NSAccessibility.Attribute.windows.rawValue as CFString, &windows)
-    if windowResult == .success,
-      let windows = windows as? [AXUIElement]
-    {
+    let windows: CFTypeRef? = wechatAppElement.getAttributeValue(
+      attribute: NSAccessibility.Attribute.windows)
+    if let windows = windows as? [AXUIElement] {
 
       mainWindow = windows.first { element in
         if let title = element.getTitle() {
@@ -75,13 +84,9 @@ public class WeChat {
       }
     }
     guard let window = mainWindow else {
-      print("无法获取 WeChat 的窗口。错误: \(windowResult.rawValue)")
       return nil
     }
     self.windowElement = window
-    if let windowElement = self.windowElement {
-      windowElement.active()
-    }
     return self.windowElement
   }
 
@@ -467,5 +472,58 @@ public class WeChat {
     {
       cell.press()
     }
+  }
+
+  public func startMonitoring() {
+    guard let appElement = self.getWeChatAppElement(),
+      let pid = appElement.getPid()
+    else {
+      return
+    }
+    let selfPtr = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+    let callback: AXObserverCallback = { observer, uiElement, notification, refcon in
+      let currentTime = Date()
+      let formatter = DateFormatter()
+
+      formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+      formatter.timeZone = TimeZone.current
+      let dateString = formatter.string(from: currentTime)
+
+      let mySelf = Unmanaged<WeChat>.fromOpaque(refcon!).takeUnretainedValue()
+      if Int(mySelf.lastNotificationTime.timeIntervalSince1970 * 1000) + 500
+        < Int(currentTime.timeIntervalSince1970 * 1000)
+      {
+        print("[Notify] WeChat update at [\(dateString)]")
+      }
+      mySelf.lastNotificationTime = currentTime
+    }
+
+    var newObserver: AXObserver?
+    let error = AXObserverCreate(pid, callback, &newObserver)
+
+    guard error == .success, let actualNewObserver = newObserver else {
+      print("Failed to create AXObserver: \(error.rawValue)")
+      return
+    }
+    self.observer = actualNewObserver
+
+    let allNotifications: [NSAccessibility.Notification] = [
+      .uiElementDestroyed,
+      .titleChanged,
+      .valueChanged,
+    ]
+
+    for notification in allNotifications {
+      let addError = AXObserverAddNotification(
+        self.observer!, appElement, notification as CFString, selfPtr)  // 使用 self.observer!
+      if addError != .success {
+        print("Failed to add notification \(notification): \(addError.rawValue)")
+      } else {
+        // print("Registered for \(notification)")
+      }
+    }
+
+    CFRunLoopAddSource(
+      CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(self.observer!), CFRunLoopMode.defaultMode)
   }
 }

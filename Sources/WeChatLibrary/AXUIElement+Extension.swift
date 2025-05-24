@@ -265,4 +265,18 @@ extension AXUIElement {
     }
     return nil
   }
+
+  func getAttributeValue(attribute: NSAccessibility.Attribute) -> CFTypeRef? {
+    var attributeValue: CFTypeRef? = nil
+    let result = AXUIElementCopyAttributeValue(
+      self, attribute.rawValue as CFString, &attributeValue)
+    if result == .success {
+      return attributeValue
+    } else {
+      print(
+        "Failed to get attribute \(attribute.rawValue): (Code: \(result.rawValue))"
+      )
+      return nil
+    }
+  }
 }
