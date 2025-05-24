@@ -130,29 +130,23 @@ public class WeChat {
     return nil
   }
 
-  public func getChatRowTitle(row: AXUIElement) -> [AXUIElement] {
-    if let chatTitleInRow = self.locateLinks[.chatTitleInRow] {
-      return row.findElements(
-        withRoleLink: chatTitleInRow,
-        maxDepth: 100
-      )
+  public func getChatRowTitle(row: AXUIElement) -> AXUIElement? {
+    guard let chatTitleInRow = self.locateLinks[.chatTitleInRow] else {
+      return nil
     }
-    return []
+    return row.findElements(
+      withRoleLink: chatTitleInRow,
+      maxDepth: 100
+    ).first
   }
 
   public func chatRowsToChatInfos(rows: [AXUIElement]) -> [ChatInfo] {
     var result: [ChatInfo] = []
-    var chatTitles: [AXUIElement] = []
-    var indexList: [Int] = []
     for row in rows {
-      if let index = row.getIndex() {
-        indexList.append(index)
-      }
-      chatTitles.append(contentsOf: getChatRowTitle(row: row))
-    }
-
-    for (idx, chatTitle) in chatTitles.enumerated() {
-      if let chatInfo = toChatInfo(element: chatTitle, index: indexList[idx]) {
+      if let index = row.getIndex(),
+        let rowTitle = getChatRowTitle(row: row),
+        let chatInfo = toChatInfo(element: rowTitle, index: index)
+      {
         result.append(chatInfo)
       }
     }
