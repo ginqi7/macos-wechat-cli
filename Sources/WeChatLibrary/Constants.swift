@@ -6,7 +6,7 @@ import Foundation
 // Enum for identifying specific UI element paths/targets
 public enum AXPathTarget: String {
   case chatTitle, chatButton, chatInput, chatViewTable, messageInRow,
-    chatListTable, chatTitleInRow
+    chatListTable, chatTitleInRow, avatarButton
 }
 
 public struct WeChatConstants {
@@ -33,6 +33,8 @@ public struct WeChatConstants {
   public static let timeFormatHHMM = "HH:mm"
   public static let dateTimeFormatFull = "yyyy-MM-dd HH:mm:ss"
   public static let localeIdentifierZHCN = "zh_CN"
+
+  public static let ownerKey = "我"
 
   // URLs
   public static let accessibilitySettingsURL =
@@ -63,5 +65,6 @@ public struct WeChatConstants {
     .chatInput: [.splitGroup, .splitGroup, .scrollArea, .textArea],
     .chatViewTable: [.splitGroup, .splitGroup, .scrollArea, .table],
     .messageInRow: [.cell, .unknown],
+    .avatarButton: [.button],
   ]
 }

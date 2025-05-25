@@ -1,3 +1,4 @@
+import ApplicationServices
 import Foundation
 
 public class Message: Encodable {
@@ -11,13 +12,15 @@ public class Message: Encodable {
   var index: Int
   var user: String
   var message: String
+  var element: AXUIElement
   public var date: String
 
-  public init(user: String, message: String, index: Int, date: String) {
+  public init(user: String, message: String, index: Int, date: String, element: AXUIElement) {
     self.user = user
     self.message = message
     self.index = index
     self.date = date
+    self.element = element
   }
 
   public func encode(to encoder: Encoder) throws {

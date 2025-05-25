@@ -127,6 +127,40 @@ private struct Notify: ParsableCommand {
   }
 }
 
+private struct CaptureEmotion: ParsableCommand {
+  static let configuration = CommandConfiguration(
+    abstract: "Capture Emotion in Chat.")
+  @Argument(
+    help: "Chat Title")
+  var title: String
+  @Argument(
+    help: "Message Index")
+  var index: Int
+
+  func run() throws {
+    WeChat().captureEmotion(
+      title: self.title,
+      messageIndex: self.index)
+  }
+}
+
+private struct CaptureAvatar: ParsableCommand {
+  static let configuration = CommandConfiguration(
+    abstract: "Capture Avatar in Chat.")
+  @Argument(
+    help: "Chat Title")
+  var title: String
+  @Argument(
+    help: "User Name")
+  var userName: String
+
+  func run() throws {
+    WeChat().captureAvatar(
+      title: self.title,
+      userName: self.userName)
+  }
+}
+
 public struct CLI: ParsableCommand {
   public static let configuration = CommandConfiguration(
     commandName: "wechat",
@@ -138,6 +172,8 @@ public struct CLI: ParsableCommand {
       Show.self,
       Preview.self,
       Notify.self,
+      CaptureEmotion.self,
+      CaptureAvatar.self,
     ]
   )
 

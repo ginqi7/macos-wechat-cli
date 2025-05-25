@@ -5,11 +5,14 @@ import CoreGraphics
 
 public class WeChat {
   var wechatAppElement: AXUIElement? = nil
+  var observerElements: [AXUIElement] = []
   var windowElement: AXUIElement? = nil
   var hasUnread: Bool = false
   var totalUnread: Int = 0
   var observer: AXObserver? = nil
   var lastNotificationTime: Date = Date()
+  var windowId: CGWindowID? = nil
+  var capturer: ImageCapturer? = nil
 
   // Uses AXPathTarget from Constants.swift and initializes from WeChatConstants.axLocateLinks
   final var locateLinks: [AXPathTarget: [NSAccessibility.Role]] = WeChatConstants.axLocateLinks
@@ -43,22 +46,25 @@ public class WeChat {
       return nil
     }
     self.wechatAppElement = AXUIElementCreateApplication(wechatApp.processIdentifier)
+    self.windowId = getWindowIDs(for: wechatApp).first
+    if let windowId = self.windowId {
+      self.capturer = ImageCapturer(for: windowId)
+    }
     return self.wechatAppElement
   }
 
-  func getAppWindow() -> AXUIElement? {
+  public func getAppWindow() -> AXUIElement? {
     if let windowElement = self.windowElement {
       return windowElement
     }
     checkAccessibilityPermissions()
-
     guard let wechatAppElement = getWeChatAppElement() else {
       return nil
     }
 
     var mainWindow: AXUIElement?
     let windows: CFTypeRef? = wechatAppElement.getAttributeValue(
-      attribute: NSAccessibility.Attribute.windows)
+      attribute: NSAccessibility.Attribute.windows as CFString)
     if let windows = windows as? [AXUIElement] {
 
       mainWindow = windows.first { element in
@@ -71,8 +77,26 @@ public class WeChat {
     guard let window = mainWindow else {
       return nil
     }
+    window.active()
     self.windowElement = window
     return self.windowElement
+  }
+
+  func getWindowIDs(for runningApplication: NSRunningApplication) -> [CGWindowID] {
+    // Step 1: Get the process identifier (PID) from the NSRunningApplication
+    let pid = runningApplication.processIdentifier
+
+    // Step 2: Retrieve info about all on-screen windows
+    let windowList =
+      CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+
+    // Step 3: Filter windows to those owned by the application's PID
+    let appWindows = windowList.filter { ($0[kCGWindowOwnerPID as String] as? Int32) == pid }
+
+    // Step 4: Extract CGWindowID (kCGWindowNumber) from each matching window
+    let windowIDs = appWindows.compactMap { $0[kCGWindowNumber as String] as? CGWindowID }
+
+    return windowIDs
   }
 
   func parseUnreadNum(str: String) -> Int {
@@ -374,14 +398,14 @@ public class WeChat {
         if isDate(str: title) {
           date = title
         } else {
-          result.append(self.toMessage(str: title, index: index, date: date))
+          result.append(self.toMessage(str: title, index: index, date: date, element: cell))
         }
       }
     }
     return result
   }
 
-  public func toMessage(str: String, index: Int, date: String) -> Message {
+  public func toMessage(str: String, index: Int, date: String, element: AXUIElement) -> Message {
     let splits = str.split(separator: ":")
     var user = splits[0]
     var message = ""
@@ -395,7 +419,7 @@ public class WeChat {
     }
     return Message(
       user: String(user.trimmingCharacters(in: .whitespaces)), message: message, index: index,
-      date: date)
+      date: date, element: element)
   }
 
   public func getSelectedChat(rows: [AXUIElement]) -> ChatInfo? {
@@ -524,5 +548,77 @@ public class WeChat {
 
     CFRunLoopAddSource(
       CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(self.observer!), CFRunLoopMode.defaultMode)
+  }
+
+  public func captureEmotion(title: String, messageIndex: Int) {
+
+    guard
+      let windowElement = getAppWindow()
+    else {
+      return
+    }
+    clickChat()
+    guard let chatListTable = getChatListTable(windowElement: windowElement) else {
+      return
+    }
+    let visibleRows = chatListTable.getVisibleRows()
+    let allRows = chatListTable.getAllRows()
+
+    let _ = locateChat(to: title, visibleRows: visibleRows, allRows: allRows)
+
+    guard let roleLink = self.locateLinks[.chatViewTable],
+      let chatViewTable = windowElement.findElements(
+        withRoleLink: roleLink,
+        maxDepth: 100
+      ).first
+    else {
+      return
+    }
+    let rows = chatViewTable.getVisibleRows()
+
+    let row = rows.first {
+      return $0.getIndex() == messageIndex
+    }
+    guard let row = row,
+      let rowlink = locateLinks[.messageInRow],
+      let cell = row.findElements(withRoleLink: rowlink).first,
+      let capturer = self.capturer,
+      let emotion = cell.findElements(withRoleLink: [.image]).first,
+      let rect = emotion.frame()
+    else {
+      return
+    }
+    capturer.capture(outputName: "WeChat-\(title)-\(messageIndex)", rect: rect)
+  }
+
+  public func captureAvatar(title: String, userName: String) {
+
+    if userName == WeChatConstants.ownerKey,
+      let appElement = self.getAppWindow(),
+      let rowLink = WeChatConstants.axLocateLinks[.avatarButton],
+      let avatar = appElement.findElements(withRoleLink: rowLink).first,
+      let rect = avatar.frame(),
+      let capturer = self.capturer
+    {
+      capturer.capture(outputName: "Wechat-Me-Avatar", rect: rect)
+      return
+    }
+
+    guard let chatInfo = show(from: title, onlyVisible: true) else {
+      return
+    }
+    let message = chatInfo.messages.last {
+      $0.user == userName
+    }
+
+    guard let message = message,
+      let rect = message.element.frame(),
+      let capturer = self.capturer,
+      rect.minX > 0,
+      rect.minY > 0
+    else {
+      return
+    }
+    capturer.captureUserAvatar(chatTitle: title, userName: userName, x: rect.minX, y: rect.minY)
   }
 }

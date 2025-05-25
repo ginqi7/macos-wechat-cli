@@ -266,17 +266,27 @@ extension AXUIElement {
     return nil
   }
 
-  func getAttributeValue(attribute: NSAccessibility.Attribute) -> CFTypeRef? {
+  func getAttributeValue(attribute: CFString) -> CFTypeRef? {
     var attributeValue: CFTypeRef? = nil
     let result = AXUIElementCopyAttributeValue(
-      self, attribute.rawValue as CFString, &attributeValue)
+      self, attribute, &attributeValue)
     if result == .success {
       return attributeValue
     } else {
       print(
-        "Failed to get attribute \(attribute.rawValue): (Code: \(result.rawValue))"
+        "Failed to get attribute \(attribute): (Code: \(result.rawValue))"
       )
       return nil
     }
+  }
+
+  func frame() -> CGRect? {
+    guard let frame = getAttributeValue(attribute: "AXFrame" as CFString) else {
+      return nil
+    }
+    // Extract the CGRect value
+    var rect: CGRect = .zero
+    let success = AXValueGetValue(frame as! AXValue, .cgRect, &rect)
+    return success ? rect : nil
   }
 }
