@@ -36,6 +36,8 @@ public struct WeChatConstants {
 
   public static let ownerKey = "我"
 
+  public static let previewablePattern = "^发送了一个(网页|视频|语音|图片)"
+
   // URLs
   public static let accessibilitySettingsURL =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"

@@ -7,20 +7,29 @@ public class Message: Encodable {
     case user
     case message
     case date
+    case previewable
+    case mySentMessage
   }
 
   var index: Int
   var user: String
   var message: String
   var element: AXUIElement
-  public var date: String
+  var previewable: Bool = false
+  var date: String
+  var mySentMessage: Bool = false
 
-  public init(user: String, message: String, index: Int, date: String, element: AXUIElement) {
+  public init(
+    user: String, message: String, index: Int, date: String, element: AXUIElement,
+    previewable: Bool, mySentMessage: Bool
+  ) {
     self.user = user
     self.message = message
     self.index = index
     self.date = date
     self.element = element
+    self.previewable = previewable
+    self.mySentMessage = mySentMessage
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -29,6 +38,8 @@ public class Message: Encodable {
     try container.encode(self.user, forKey: .user)
     try container.encode(self.message, forKey: .message)
     try container.encode(self.date, forKey: .date)
+    try container.encode(self.previewable, forKey: .previewable)
+    try container.encode(self.mySentMessage, forKey: .mySentMessage)
   }
 
   public func toJson() -> String {

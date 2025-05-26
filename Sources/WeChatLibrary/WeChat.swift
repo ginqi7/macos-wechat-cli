@@ -417,9 +417,19 @@ public class WeChat {
     if user.hasSuffix(WeChatConstants.userSaidSuffix) {
       user.removeLast(WeChatConstants.userSaidSuffix.count)
     }
+    let userName = String(user.trimmingCharacters(in: .whitespaces) as String)
     return Message(
-      user: String(user.trimmingCharacters(in: .whitespaces)), message: message, index: index,
-      date: date, element: element)
+      user: userName, message: message, index: index,
+      date: date, element: element, previewable: isPreviewable(message),
+      mySentMessage: userName == WeChatConstants.ownerKey)
+  }
+
+  func isPreviewable(_ message: String) -> Bool {
+    guard let regex = try? NSRegularExpression(pattern: WeChatConstants.previewablePattern) else {
+      return false
+    }
+    let range = NSRange(message.startIndex..<message.endIndex, in: message)
+    return regex.firstMatch(in: message, options: [], range: range) != nil
   }
 
   public func getSelectedChat(rows: [AXUIElement]) -> ChatInfo? {

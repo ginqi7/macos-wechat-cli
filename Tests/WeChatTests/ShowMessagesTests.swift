@@ -9,24 +9,25 @@ final class ShowMessagesTests: XCTestCase {
   func testToStr() throws {
     let message1 = Message(
       user: "我", message: "I created a WeChat CLI tool.", index: 0, date: "",
-      element: AXUIElementCreateApplication(1))
+      element: AXUIElementCreateApplication(1), previewable: false, mySentMessage: true)
     let message2 = Message(
       user: "user1", message: "Looks good.", index: 1, date: "",
-      element: AXUIElementCreateApplication(1))
+      element: AXUIElementCreateApplication(1), previewable: false, mySentMessage: false)
     let message3 = Message(
       user: "user1", message: "发送了一个图片", index: 2, date: "11:55",
-      element: AXUIElementCreateApplication(1))
+      element: AXUIElementCreateApplication(1), previewable: true, mySentMessage: false)
     let message4 = Message(
       user: "user1", message: "This marks a new beginning.", index: 3, date: "12:12",
-      element: AXUIElementCreateApplication(1))
+      element: AXUIElementCreateApplication(1), previewable: false, mySentMessage: false)
     let message5 = Message(
       user: "user1", message: "发送了一个图片", index: 4, date: "12:12",
-      element: AXUIElementCreateApplication(1))
+      element: AXUIElementCreateApplication(1), previewable: true, mySentMessage: false)
     let message6 = Message(
       user: "user1", message: "哈哈", index: 5, date: "12:12",
-      element: AXUIElementCreateApplication(1))
+      element: AXUIElementCreateApplication(1), previewable: false, mySentMessage: false)
     let message7 = Message(
-      user: "我", message: "哈哈", index: 6, date: "12:12", element: AXUIElementCreateApplication(1))
+      user: "我", message: "哈哈", index: 6, date: "12:12", element: AXUIElementCreateApplication(1),
+      previewable: false, mySentMessage: true)
 
     var messages: [Message] = []
     messages.append(message1)
