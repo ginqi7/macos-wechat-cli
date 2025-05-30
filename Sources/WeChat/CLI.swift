@@ -136,11 +136,17 @@ private struct CaptureEmotion: ParsableCommand {
   @Argument(
     help: "Message Index")
   var index: Int
+  @Option(
+    name: .shortAndLong,
+    help: "The output directory")
+  var directory: String
 
   func run() throws {
     WeChat().captureEmotion(
       title: self.title,
-      messageIndex: self.index)
+      messageIndex: self.index,
+      outputDirectory: self.directory
+    )
   }
 }
 
@@ -153,11 +159,17 @@ private struct CaptureAvatar: ParsableCommand {
   @Argument(
     help: "User Name")
   var userName: String
+  @Option(
+    name: .shortAndLong,
+    help: "The output directory")
+  var directory: String
 
   func run() throws {
     WeChat().captureAvatar(
       title: self.title,
-      userName: self.userName)
+      userName: self.userName,
+      outputDirectory: self.directory
+    )
   }
 }
 

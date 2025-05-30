@@ -560,7 +560,7 @@ public class WeChat {
       CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(self.observer!), CFRunLoopMode.defaultMode)
   }
 
-  public func captureEmotion(title: String, messageIndex: Int) {
+  public func captureEmotion(title: String, messageIndex: Int, outputDirectory: String?) {
 
     guard
       let windowElement = getAppWindow()
@@ -598,11 +598,11 @@ public class WeChat {
     else {
       return
     }
-    capturer.capture(outputName: "WeChat-\(title)-\(messageIndex)", rect: rect)
+    capturer.setDirectory(directory: outputDirectory)
+    capturer.captureMessage(chatTitle: title, messageIndex: messageIndex, rect: rect)
   }
 
-  public func captureAvatar(title: String, userName: String) {
-
+  public func captureAvatar(title: String, userName: String, outputDirectory: String?) {
     if userName == WeChatConstants.ownerKey,
       let appElement = self.getAppWindow(),
       let rowLink = WeChatConstants.axLocateLinks[.avatarButton],
@@ -610,7 +610,8 @@ public class WeChat {
       let rect = avatar.frame(),
       let capturer = self.capturer
     {
-      capturer.capture(outputName: "Wechat-Me-Avatar", rect: rect)
+      capturer.setDirectory(directory: outputDirectory)
+      capturer.captureMeAvatar(rect: rect)
       return
     }
 
