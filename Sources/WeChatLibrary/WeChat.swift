@@ -630,6 +630,7 @@ public class WeChat {
     else {
       return
     }
+    capturer.setDirectory(directory: outputDirectory)
     capturer.captureUserAvatar(chatTitle: title, userName: userName, x: rect.minX, y: rect.minY)
   }
 }
