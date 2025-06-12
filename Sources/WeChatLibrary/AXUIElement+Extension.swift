@@ -280,6 +280,20 @@ extension AXUIElement {
     }
   }
 
+  func getAttributeNames() -> [String] {
+    var attributeNames: CFArray?
+    let result = AXUIElementCopyAttributeNames(
+      self, &attributeNames)
+    if result == .success {
+      return attributeNames as! [String]
+    } else {
+      print(
+        "Failed to get attributeNames: (Code: \(result.rawValue))"
+      )
+      return []
+    }
+  }
+
   func frame() -> CGRect? {
     guard let frame = getAttributeValue(attribute: "AXFrame" as CFString) else {
       return nil

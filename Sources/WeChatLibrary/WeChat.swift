@@ -539,13 +539,13 @@ public class WeChat {
 
     let allNotifications: [NSAccessibility.Notification] = [
       .uiElementDestroyed,
-      .titleChanged,
-      .valueChanged,
+      .rowCountChanged,
     ]
 
     for notification in allNotifications {
       let addError = AXObserverAddNotification(
         self.observer!, appElement, notification as CFString, selfPtr)  // 使用 self.observer!
+
       if addError != .success {
         print(
           String(
