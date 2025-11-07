@@ -11,7 +11,7 @@ let package = Package(
     .library(name: "WeChatLibrary", targets: ["WeChatLibrary"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "1.3.1"))
+    .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "1.6.2"))
   ],
   targets: [
     .executableTarget(
