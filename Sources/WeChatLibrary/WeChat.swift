@@ -364,6 +364,46 @@ public class WeChat {
     return target
   }
 
+  public func scroll(from: String, ratio: Double) -> (begin: Double, end: Double)? {
+
+    guard let windowElement = getAppWindow() else {
+      return nil
+    }
+    clickChat()
+    guard let chatListTable = getChatListTable(windowElement: windowElement) else {
+      return nil
+    }
+
+    let visibleRows = chatListTable.getVisibleRows()
+    let allRows = chatListTable.getAllRows()
+
+    if locateChat(to: from, visibleRows: visibleRows, allRows: allRows) == nil {
+      return nil
+    }
+
+    guard let roleLink = self.locateLinks[.scroller],
+      let scroller = windowElement.findElements(
+        withRoleLink: roleLink,
+        maxDepth: 100
+      ).first
+    else {
+      return nil
+    }
+    let newValue = ratio as CFNumber
+    guard let begin = scroller.value() as? Double else {
+      return nil
+    }
+    let error = AXUIElementSetAttributeValue(scroller, kAXValueAttribute as CFString, newValue)
+    guard error == .success else {
+      print("Write Failed：\(error.rawValue)")
+      return nil
+    }
+    guard let end = scroller.value() as? Double else {
+      return nil
+    }
+    return (begin, end)
+  }
+
   func isTimeFormat(_ string: String) -> Bool {
     let timeFormatter = DateFormatter()
     timeFormatter.locale = Locale(identifier: WeChatConstants.localeIdentifierZHCN)

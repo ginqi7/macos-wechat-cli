@@ -87,6 +87,34 @@ private struct Show: ParsableCommand {
   }
 }
 
+private struct Scroll: ParsableCommand {
+  static let configuration = CommandConfiguration(
+    abstract: "Scroll WeChat Messages.")
+  @Argument(
+    help: "Chat title")
+  var title: String
+  @Argument(
+    help: "Scroll ratio")
+  var ratio: Double
+  @Option(
+    name: .shortAndLong,
+    help: "format, either of 'plain' or 'json'")
+  var format: OutputFormat = .plain
+
+  func run() {
+    if let (begin, end) = WeChat().scroll(from: self.title, ratio: self.ratio) {
+      var str = ""
+      switch self.format {
+      case .json:
+        str = "{\"begin\": \(begin), \"end\": \(begin)}"
+      case .plain:
+        str = "Scroll \(begin) -> \(end)."
+      }
+      print(str)
+    }
+  }
+}
+
 private struct Preview: ParsableCommand {
   static let configuration = CommandConfiguration(
     abstract: "Preview the Link or the Image")
@@ -182,6 +210,7 @@ public struct CLI: ParsableCommand {
       ListChats.self,
       Send.self,
       Show.self,
+      Scroll.self,
       Preview.self,
       Notify.self,
       CaptureEmotion.self,

@@ -6,7 +6,7 @@ import Foundation
 // Enum for identifying specific UI element paths/targets
 public enum AXPathTarget: String {
   case chatTitle, chatButton, chatInput, chatViewTable, messageInRow,
-    chatListTable, chatTitleInRow, avatarButton
+       chatListTable, chatTitleInRow, avatarButton, scroller
 }
 
 public struct WeChatConstants {
@@ -68,5 +68,6 @@ public struct WeChatConstants {
     .chatViewTable: [.splitGroup, .splitGroup, .scrollArea, .table],
     .messageInRow: [.cell, .unknown],
     .avatarButton: [.button],
+    .scroller: [.splitGroup, .splitGroup, .scrollArea, .scrollBar, .valueIndicator],
   ]
 }
