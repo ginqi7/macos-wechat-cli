@@ -1,5 +1,7 @@
 # MacOS WeChat CLI
 
+> ⚠️ **ARCHIVED**: This project is no longer maintained. WeChat 3.8 login is no longer functional for me, and WeChat 4.x does not support the Accessibility API required by this tool.
+
 A simple CLI for interacting with OS X WeChat.
 
 *The current version only supports Wechat 3.8 and simplified Chinese on WeChat.*
